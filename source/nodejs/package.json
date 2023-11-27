@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "discord-screenshot": "github:mrTomatolegit/discord-screenshot#master",
+    "jimp": "^0.22.10",
+    "string-pixel-width": "^1.11.0"
+  }
+}
