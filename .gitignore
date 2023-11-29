@@ -1,4 +1,4 @@
-source/config.json
-source/lavalink
-source/__pycache__/
-source/cogs/__pycache__/
+config.json
+lavalink
+__pycache__/
+cogs/__pycache__/
