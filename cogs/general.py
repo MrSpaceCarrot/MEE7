@@ -53,7 +53,7 @@ class General(commands.Cog):
         embed.add_field(name="**General**", value="/help, /activity", inline=False)
         embed.add_field(name="**Servers**", value="/ip, /server-list, /server-start, /server-help, /active-servers", inline=False)
         embed.add_field(name="**Music**", value="/connect, /disconnect, /play, /skip, /pause, /resume, /queue", inline=False)
-        embed.add_field(name="**Fun**", value="/catpic, /insult, /frame, /shu-todoroki", inline=False)
+        embed.add_field(name="**Fun**", value="/catpic, /insult, /shu-todoroki", inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
 
         # Send embed

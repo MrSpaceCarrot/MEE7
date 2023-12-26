@@ -25,7 +25,7 @@ def GetServerNames(category) -> list:
     output = []
 
     if category in ["General", "SMP", "Origins", "Pokemon", "Misc", "Non-MC"]:
-        cursor.execute(f"SELECT name FROM serverinformation WHERE category = {'General'} ORDER BY serverID Asc")
+        cursor.execute(f"SELECT name FROM serverinformation WHERE category = '{category}' ORDER BY serverID Asc")
     elif category == "All":
         cursor.execute("SELECT name FROM serverinformation ORDER BY serverID Asc")
     
