@@ -1,5 +1,4 @@
 # Module Imports
-import subprocess
 import requests
 
 import discord
