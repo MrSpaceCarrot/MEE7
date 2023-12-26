@@ -2,7 +2,7 @@
 Personal discord bot, with a variety of features
 
 # Features
-- Startup game servers that are installed on the same machine via commands
+- Startup game servers that are located on a pterodactyl panel instance
 - Provide information about these game servers, such as version, mods, address, etc
 - Music playback in voice channels using Lavalink/Wavelink
 - Miscellaneous fun commands
