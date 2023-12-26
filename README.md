@@ -8,8 +8,7 @@ Personal discord bot, with a variety of features
 - Miscellaneous fun commands
 
 # Requirements
-- Python
-- Node.js
+- Python 3.11+
 - Access to a [Lavalink server](https://github.com/lavalink-devs/Lavalink). (Find a public server or host your own)
 - Access to a MySQL server (Run locally or otherwise)
 
