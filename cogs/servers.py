@@ -26,7 +26,10 @@ class Servers(commands.Cog):
         response = requests.get(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/resources", headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'})
         content = response.json()
         running = content["attributes"]["current_state"]
-        return running
+        if running == "running":
+            return True
+        else:
+            return False
 
     # IP command
     @app_commands.command(name="ip", description="Displays the server ips")
