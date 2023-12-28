@@ -1,6 +1,5 @@
 # Module Imports
-import subprocess
-import ctypes
+import requests
 
 import discord
 from discord import app_commands
@@ -18,31 +17,19 @@ class Servers(commands.Cog):
         self.client = client
         self.CONSTANTS = Constants()
 
-    # Function to heck window titles to see if server is running
+    # Function to see if server is running
     async def check_server_running(self, server) -> bool:
-        # Define variables
-        EnumWindows = ctypes.windll.user32.EnumWindows
-        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
-        GetWindowText = ctypes.windll.user32.GetWindowTextW
-        GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
-        IsWindowVisible = ctypes.windll.user32.IsWindowVisible
-        titles = []
-
-        # For each open window, add it to a list
-        def foreach_window(hwnd, lParam):
-            if IsWindowVisible(hwnd):
-                length = GetWindowTextLength(hwnd)
-                buff = ctypes.create_unicode_buffer(length + 1)
-                GetWindowText(hwnd, buff, length + 1)
-                titles.append(buff.value)
+        # Get server uuid
+        serverInfo = serversdb.GetServerInformation(server)
+        server_uuid = serverInfo[15]
+        # Check serverdata for running
+        response = requests.get(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/resources", headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'})
+        content = response.json()
+        running = content["attributes"]["current_state"]
+        if running == "running":
             return True
-        EnumWindows(EnumWindowsProc(foreach_window), 0)
-
-        # For each open window, check if it matches the targeted server
-        for i in titles:
-            if i == server:
-                return True
-        return False
+        else:
+            return False
 
     # IP command
     @app_commands.command(name="ip", description="Displays the server ips")
@@ -94,20 +81,17 @@ class Servers(commands.Cog):
         if running == True:
             success = False
         else:
-            # Try to start servers
-            servers = serversdb.GetServerNames("All")
-            for i in servers:
-                if i == server:
-                    serverInfo = serversdb.GetServerInformation(server)
-
-                    # Get file path into correct format from config, by removing extra backslash
-                    original_path = self.CONSTANTS.SERVERPATH
-                    path = original_path.replace("\\\\", "\\")
-                    run_path = f"{path}{serverInfo[3]} - {server}\Run.cmd"
-
-                    subprocess.call(run_path)
-                    success = True
-                    break
+            # Try to start server
+            serverInfo = serversdb.GetServerInformation(server)
+            server_uuid = serverInfo[15]
+            response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/power", 
+                                     headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'}, 
+                                     json={'signal': 'start'})
+            
+            # Check response code
+            request_code = response.status_code
+            if request_code == 204:
+                success = True
 
         # Set embed information
         if success == True:
@@ -209,7 +193,6 @@ class Servers(commands.Cog):
 
         # Loop through all servers, add running ones to the list, check for hub as it is not in db
         servers = serversdb.GetServerNames("All")
-        servers.insert(0, "Hub")
         for server in servers:
             if await self.check_server_running(server):
                 description.append(server)

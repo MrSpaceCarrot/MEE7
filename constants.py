@@ -30,6 +30,10 @@ class Constants():
         self.WLPORT = data["WAVELINK"]["WLPORT"]
         self.WLPASSWORD = data["WAVELINK"]["WLPASSWORD"]
 
+        # Pterodactyl Panel
+        self.PPDOMAIN = data["PTERODACTYL"]["PPDOMAIN"]
+        self.PPAPIKEY = data["PTERODACTYL"]["PPAPIKEY"]
+
         # Strings
         self.FOOTER = "Beep Boop"
 
