@@ -43,6 +43,7 @@ def run_bot():
         except Exception as e:
             print(e)
 
+        print("Startup complete")
         print(f"{client.user} is now running!")
 
 

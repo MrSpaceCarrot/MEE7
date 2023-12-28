@@ -46,7 +46,7 @@ class General(commands.Cog):
             print(e)
 
     # Help command
-    @app_commands.command(name="help", description="Lists all avalible commands")
+    @app_commands.command(name="help", description="Lists all available commands")
     async def help(self, interaction: discord.Interaction) -> None:
         # Create embed
         embed = discord.Embed(title="Commands", description="All commands, sorted by type", color=self.CONSTANTS.GREEN)
