@@ -20,11 +20,6 @@ class Constants():
         self.DBPASSWORD = data["DATABASE"]["DBPASSWORD"]
         self.DBDATABASE = data["DATABASE"]["DBDATABASE"]
 
-        # Server data
-        self.IP1 = data["SERVERS"]["IP1"]
-        self.IP2 = data["SERVERS"]["IP2"]
-        self.SERVERPATH = data["SERVERS"]["SERVERPATH"]
-
         # Wavelink
         self.WLHOST = data["WAVELINK"]["WLHOST"]
         self.WLPORT = data["WAVELINK"]["WLPORT"]

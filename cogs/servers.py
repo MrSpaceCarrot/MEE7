@@ -31,19 +31,6 @@ class Servers(commands.Cog):
         else:
             return False
 
-    # IP command
-    @app_commands.command(name="ip", description="Displays the server ips")
-    async def ip(self, interaction: discord.Interaction) -> None:
-        # Create embed
-        embed = discord.Embed(title="✉️ Server IP", description="", color=self.CONSTANTS.GREEN)
-        embed.add_field(name="", value=f"**Main Network IP:** {self.CONSTANTS.IP1}", inline=False)
-        embed.add_field(name="", value=f"**Secondary Server IP:** {self.CONSTANTS.IP2}", inline=False)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
-
-        # Send embed
-        print(f"/ip executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
-        await interaction.response.send_message(embed=embed)
-
     # Server List Command
     @app_commands.command(name="server-list", description="Lists all available servers you can start up")
     async def serverlist(self, interaction: discord.Interaction) -> None:
@@ -136,24 +123,17 @@ class Servers(commands.Cog):
             modlist = serverInfo[6]
             moddownload = serverInfo[7]
             active = serverInfo[8]
-            compatible = serverInfo[9]
             modconditions = serverInfo[10]
-            port = serverInfo[13]
             emoji = serverInfo[14]
+            domain = serverInfo[16]
             server = server.lower().capitalize()
 
             # Create embed
             embed = discord.Embed(title=f"{emoji} {name}", description=description, color=self.CONSTANTS.GREEN)
             embed.add_field(name="**💻 Version**", value=f"{version} {modloader}", inline=False)
 
-            # Add address and port to embed
-            if category == "Non-MC":
-                embed.add_field(name="**✉️ IP**", value=f"{self.CONSTANTS.IP1}:{port}", inline=False)
-            else:
-                if compatible == 1:
-                    embed.add_field(name="**✉️ IP**", value=f"{self.CONSTANTS.IP1} (Main IP)", inline=False)
-                if compatible == 0:
-                    embed.add_field(name="**✉️ IP**", value=f"{self.CONSTANTS.IP2} (Secondary IP)", inline=False)
+            # Add domain to embed
+            embed.add_field(name="**✉️ How To Join**", value=domain, inline=False)
 
             # Add mod download information to embed
             if modloader != "Vanilla":
@@ -168,7 +148,7 @@ class Servers(commands.Cog):
             # Add message if the server is no longer active
             if active == 0:
                 embed.add_field(name="**❗ Activity**",
-                                value="This server has been inactive for a long time, and is now spectator only",
+                                value="This server has been inactive for a long time, and can be considered dead",
                                 inline=False)
 
             # Add current activity status of the server
@@ -186,12 +166,15 @@ class Servers(commands.Cog):
     # Active servers command
     @app_commands.command(name="active-servers", description="Lists all currently running servers")
     async def activeservers(self, interaction: discord.Interaction) -> None:
+        # Defer interaction
+        await interaction.response.defer()
+
         # Define variables for embed
         title = "🟢 Servers currently online"
         description = []
         description_final = ""
 
-        # Loop through all servers, add running ones to the list, check for hub as it is not in db
+        # Loop through all servers, add running ones to the list
         servers = serversdb.GetServerNames("All")
         for server in servers:
             if await self.check_server_running(server):
@@ -210,7 +193,7 @@ class Servers(commands.Cog):
 
         # Send embed
         print(f"/active-servers executed by {interaction.user} in #{interaction.guild}")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 # Setup function
