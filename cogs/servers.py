@@ -117,7 +117,6 @@ class Servers(commands.Cog):
         else:
             name = serverInfo[1]
             description = serverInfo[2]
-            category = serverInfo[3]
             version = serverInfo[4]
             modloader = serverInfo[5]
             modlist = serverInfo[6]
