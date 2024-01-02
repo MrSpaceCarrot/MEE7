@@ -40,6 +40,7 @@ class Constants():
         self.STATUSES_PLAYING = [
             "Minecraft",
             "Roblox",
+            "Terraria"
         ]
         self.STATUSES_WATCHING = [
             "Youtube",
