@@ -44,6 +44,7 @@ class Servers(commands.Cog):
         embed.add_field(name="**Origins Servers**", value=", ".join(serversdb.GetServerNames("Origins")), inline=False)
         embed.add_field(name="**Pokemon Servers**", value=", ".join(serversdb.GetServerNames("Pokemon")), inline=False)
         embed.add_field(name="**Miscellaneous Servers**", value=", ".join(serversdb.GetServerNames("Misc")), inline=False)
+        embed.add_field(name="**Legacy Servers**", value=", ".join(serversdb.GetServerNames("Legacy")), inline=False)
         embed.add_field(name="**Non-MC Servers**", value=", ".join(serversdb.GetServerNames("Non-MC")), inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
 
