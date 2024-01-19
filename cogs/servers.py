@@ -21,7 +21,7 @@ class Servers(commands.Cog):
     async def check_server_running(self, server) -> bool:
         # Get server uuid
         serverInfo = serversdb.GetServerInformation(server)
-        server_uuid = serverInfo[15]
+        server_uuid = serverInfo["uuid"]
         # Check serverdata for running
         response = requests.get(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/resources", headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'})
         content = response.json()
@@ -71,7 +71,7 @@ class Servers(commands.Cog):
         else:
             # Try to start server
             serverInfo = serversdb.GetServerInformation(server)
-            server_uuid = serverInfo[15]
+            server_uuid = serverInfo["uuid"]
             response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/power", 
                                      headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'}, 
                                      json={'signal': 'start'})
@@ -116,16 +116,16 @@ class Servers(commands.Cog):
             embed = discord.Embed(title=f"❌ {server} is not a valid server",
                                   description="Run /server-list to get a list of valid servers", color=self.CONSTANTS.RED)
         else:
-            name = serverInfo[1]
-            description = serverInfo[2]
-            version = serverInfo[4]
-            modloader = serverInfo[5]
-            modlist = serverInfo[6]
-            moddownload = serverInfo[7]
-            active = serverInfo[8]
-            modconditions = serverInfo[10]
-            emoji = serverInfo[14]
-            domain = serverInfo[16]
+            name = serverInfo["name"]
+            description = serverInfo["description"]
+            version = serverInfo["version"]
+            modloader = serverInfo["modloader"]
+            modlist = serverInfo["modlist"]
+            moddownload = serverInfo["moddownload"]
+            active = serverInfo["active"]
+            modconditions = serverInfo["modconditions"]
+            emoji = serverInfo["emoji"]
+            domain = serverInfo["domain"]
             server = server.lower().capitalize()
 
             # Create embed

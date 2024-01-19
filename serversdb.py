@@ -9,17 +9,20 @@ CONSTANTS = Constants()
 
 
 # Connect to database
-def DatabaseConnection():
+def DatabaseConnection(use_dictionary):
     # Create mysql connection and return database and cursor objects
     db = mysql.connector.connect(host=CONSTANTS.DBHOST, user=CONSTANTS.DBUSERNAME, passwd=CONSTANTS.DBPASSWORD, database=CONSTANTS.DBDATABASE)
-    cursor = db.cursor()
+    if use_dictionary:
+        cursor = db.cursor(dictionary=True)
+    else:
+        cursor = db.cursor()
     return db, cursor
 
 
 #Return all server names of a certain category
 def GetServerNames(category) -> list:
     # Define db and cursor
-    db, cursor = DatabaseConnection()
+    db, cursor = DatabaseConnection(False)
 
     # Get servers from db
     output = []
@@ -41,7 +44,7 @@ def GetServerNames(category) -> list:
 #Return all server info of one specific server
 def GetServerInformation(server) -> str:
     # Define cursor and db
-    db, cursor = DatabaseConnection()
+    db, cursor = DatabaseConnection(True)
 
     # Get server info from db
     cursor.execute("SELECT * FROM serverinformation WHERE name = " + "'" + server + "'")
