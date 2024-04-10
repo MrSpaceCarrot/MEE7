@@ -20,16 +20,20 @@ class Servers(commands.Cog):
     # Function to see if server is running
     async def check_server_running(self, server) -> bool:
         # Get server uuid
-        serverInfo = serversdb.GetServerInformation(server)
-        server_uuid = serverInfo["uuid"]
-        # Check serverdata for running
+        server_info = serversdb.GetServerInformation(server)
+
+        # Return false if server does not exist
+        if server_info == None:
+            return None
+
+        # Check server_info for running
+        server_uuid = server_info["uuid"]
         response = requests.get(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/resources", headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'})
         content = response.json()
         running = content["attributes"]["current_state"]
-        if running == "running":
-            return True
-        else:
-            return False
+
+        # Return result
+        return True if running == "running" else False
 
     # Server List Command
     @app_commands.command(name="server-list", description="Lists all available servers you can start up")
@@ -66,12 +70,12 @@ class Servers(commands.Cog):
         running = await self.check_server_running(server)
 
         # Check if server is already running, fail if so
-        if running == True:
+        if running == True or running == None:
             success = False
         else:
             # Try to start server
-            serverInfo = serversdb.GetServerInformation(server)
-            server_uuid = serverInfo["uuid"]
+            server_info = serversdb.GetServerInformation(server)
+            server_uuid = server_info["uuid"]
             response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/power", 
                                      headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'}, 
                                      json={'signal': 'start'})
@@ -111,21 +115,21 @@ class Servers(commands.Cog):
     @app_commands.describe(server="Server name")
     async def serverhelp(self, interaction: discord.Interaction, server: str) -> None:
         # Get server info and assign it to variables, set embed to error if no such server exists
-        serverInfo = serversdb.GetServerInformation(server)
-        if serverInfo == None:
+        server_info = serversdb.GetServerInformation(server)
+        if server_info == None:
             embed = discord.Embed(title=f"❌ {server} is not a valid server",
                                   description="Run /server-list to get a list of valid servers", color=self.CONSTANTS.RED)
         else:
-            name = serverInfo["name"]
-            description = serverInfo["description"]
-            version = serverInfo["version"]
-            modloader = serverInfo["modloader"]
-            modlist = serverInfo["modlist"]
-            moddownload = serverInfo["moddownload"]
-            active = serverInfo["active"]
-            modconditions = serverInfo["modconditions"]
-            emoji = serverInfo["emoji"]
-            domain = serverInfo["domain"]
+            name = server_info["name"]
+            description = server_info["description"]
+            version = server_info["version"]
+            modloader = server_info["modloader"]
+            modlist = server_info["modlist"]
+            moddownload = server_info["moddownload"]
+            active = server_info["active"]
+            modconditions = server_info["modconditions"]
+            emoji = server_info["emoji"]
+            domain = server_info["domain"]
             server = server.lower().capitalize()
 
             # Create embed

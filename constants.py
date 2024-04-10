@@ -40,7 +40,9 @@ class Constants():
         self.STATUSES_PLAYING = [
             "Minecraft",
             "Roblox",
-            "Terraria"
+            "Terraria",
+            "Birdgut",
+            "Super friends party"
         ]
         self.STATUSES_WATCHING = [
             "Youtube",
@@ -48,5 +50,6 @@ class Constants():
         ]
         self.STATUSES_LISTENING = [
             "the purges",
-            "the screams"
+            "the screams",
+            "death metal"
         ]
