@@ -9,7 +9,7 @@ CONSTANTS = Constants()
 
 
 # Connect to database
-def DatabaseConnection(use_dictionary):
+def database_connection(use_dictionary):
     # Create mysql connection and return database and cursor objects
     db = mysql.connector.connect(host=CONSTANTS.DBHOST, user=CONSTANTS.DBUSERNAME, passwd=CONSTANTS.DBPASSWORD, database=CONSTANTS.DBDATABASE)
     if use_dictionary:
@@ -19,15 +19,34 @@ def DatabaseConnection(use_dictionary):
     return db, cursor
 
 
-#Return all server names of a certain category
-def GetServerNames(category) -> list:
+# Get list of valid categories
+def get_categories() -> list:
     # Define db and cursor
-    db, cursor = DatabaseConnection(False)
+    db, cursor = database_connection(False)
+
+    # Get categories from db
+    output = []
+    cursor.execute("SELECT name FROM servercategories ORDER BY categoryID Asc")
+
+    # Add retrieved categories to list
+    for i in cursor:
+        output.append(i[0])
+
+    # Return results and close connection
+    db.close()
+    return output
+
+
+#Return all server names of a certain category
+def get_server_names(category) -> list:
+    # Define db and cursor
+    db, cursor = database_connection(False)
 
     # Get servers from db
     output = []
+    categories = get_categories()
 
-    if category in ["General", "SMP", "Origins", "Pokemon", "Misc", "Legacy", "Non-MC"]:
+    if category in categories:
         cursor.execute(f"SELECT name FROM serverinformation WHERE category = '{category}' ORDER BY serverID Asc")
     elif category == "All":
         cursor.execute("SELECT name FROM serverinformation ORDER BY serverID Asc")
@@ -42,9 +61,9 @@ def GetServerNames(category) -> list:
 
 
 #Return all server info of one specific server
-def GetServerInformation(server) -> str:
+def get_server_information(server) -> str:
     # Define cursor and db
-    db, cursor = DatabaseConnection(True)
+    db, cursor = database_connection(True)
 
     # Get server info from db
     cursor.execute("SELECT * FROM serverinformation WHERE name = " + "'" + server + "'")

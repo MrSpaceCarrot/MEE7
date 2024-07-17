@@ -20,7 +20,7 @@ class Servers(commands.Cog):
     # Function to see if server is running
     async def check_server_running(self, server) -> bool:
         # Get server uuid
-        server_info = serversdb.GetServerInformation(server)
+        server_info = serversdb.get_server_information(server)
 
         # Return false if server does not exist
         if server_info == None:
@@ -42,14 +42,10 @@ class Servers(commands.Cog):
         embed = discord.Embed(title="📜 Server List",
                               description="All servers that can be run with the /start-server command. Use /server-help to find out more about each server",
                               color=self.CONSTANTS.GREEN)
-
-        embed.add_field(name="**General Servers**", value=", ".join(serversdb.GetServerNames("General")), inline=False)
-        embed.add_field(name="**Survival Servers**", value=", ".join(serversdb.GetServerNames("SMP")), inline=False)
-        embed.add_field(name="**Origins Servers**", value=", ".join(serversdb.GetServerNames("Origins")), inline=False)
-        embed.add_field(name="**Pokemon Servers**", value=", ".join(serversdb.GetServerNames("Pokemon")), inline=False)
-        embed.add_field(name="**Miscellaneous Servers**", value=", ".join(serversdb.GetServerNames("Misc")), inline=False)
-        embed.add_field(name="**Legacy Servers**", value=", ".join(serversdb.GetServerNames("Legacy")), inline=False)
-        embed.add_field(name="**Non-MC Servers**", value=", ".join(serversdb.GetServerNames("Non-MC")), inline=False)
+        
+        categories = serversdb.get_categories()
+        for category in categories:
+            embed.add_field(name=f"**{category}**", value=", ".join(serversdb.get_server_names(category)), inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
 
         # Send embed
@@ -74,7 +70,7 @@ class Servers(commands.Cog):
             success = False
         else:
             # Try to start server
-            server_info = serversdb.GetServerInformation(server)
+            server_info = serversdb.get_server_information(server)
             server_uuid = server_info["uuid"]
             response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/power", 
                                      headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'}, 
@@ -115,7 +111,7 @@ class Servers(commands.Cog):
     @app_commands.describe(server="Server name")
     async def serverhelp(self, interaction: discord.Interaction, server: str) -> None:
         # Get server info and assign it to variables, set embed to error if no such server exists
-        server_info = serversdb.GetServerInformation(server)
+        server_info = serversdb.get_server_information(server)
         if server_info == None:
             embed = discord.Embed(title=f"❌ {server} is not a valid server",
                                   description="Run /server-list to get a list of valid servers", color=self.CONSTANTS.RED)
@@ -179,7 +175,7 @@ class Servers(commands.Cog):
         description_final = ""
 
         # Loop through all servers, add running ones to the list
-        servers = serversdb.GetServerNames("All")
+        servers = serversdb.get_server_names("All")
         for server in servers:
             if await self.check_server_running(server):
                 description.append(server)
