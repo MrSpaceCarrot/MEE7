@@ -22,26 +22,30 @@ class Music(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.CONSTANTS = Constants()
+        
         client.loop.create_task(self.connect_nodes())
 
     # Wavelink connect node function
     async def connect_nodes(self) -> None:
         await self.client.wait_until_ready()
-        await wavelink.NodePool.create_node(
-            bot=self.client,
-            host=self.CONSTANTS.WLHOST,
-            port=self.CONSTANTS.WLPORT,
-            password=self.CONSTANTS.WLPASSWORD
-        )
+        nodes = [wavelink.Node(uri=f"{self.CONSTANTS.WLHOST}:{self.CONSTANTS.WLPORT}", password=self.CONSTANTS.WLPASSWORD)]
+        await wavelink.Pool.connect(nodes=nodes, client=self.client, cache_capacity=None)
 
-    # Wavelink on node ready
+    # Wavelink on node ready function
     @commands.Cog.listener()
-    async def on_wavelink_node_ready(self, node: wavelink.Node) -> None:
-        print(f"Wavelink Node {node.identifier} is ready!")
+    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
+        print(f"Wavelink Node {payload.node.identifier} is ready!")
+
+    # Wavelink on song end function
+    #@commands.Cog.listener()
+    #async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
+    #    print(f"Track started: {payload.track.title}, duration: {payload.track.length}")
 
     #Wavelink on song end function
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, player: CustomPlayer, track: wavelink.Track, reason) -> None:
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        #print(f"Track ended: {payload.track.title}, reason: {payload.reason}")
+        player = payload.player
         if not player.queue.is_empty:
             next_track = player.queue.get()
             await player.play(next_track)
@@ -60,7 +64,7 @@ class Music(commands.Cog):
     @app_commands.command(name="connect", description="Connects the bot to a voice channel")
     async def connect(self, interaction: discord.Interaction) -> None:
         # Define variables
-        vc = interaction.guild.voice_client
+        vc: CustomPlayer = interaction.guild.voice_client
         message = ""
         color = None
 
@@ -92,7 +96,7 @@ class Music(commands.Cog):
     @app_commands.command(name="disconnect", description="Disconnects the bot from the voice channel")
     async def disconnect(self, interaction: discord.Interaction) -> None:
         # Define variables
-        vc = interaction.guild.voice_client
+        vc: CustomPlayer = interaction.guild.voice_client
         message = ""
         color = None
 
@@ -118,7 +122,8 @@ class Music(commands.Cog):
     @app_commands.describe(song="Song that you want to play")
     async def play(self, interaction: discord.Interaction, song: str) -> None:
         # Search YouTube for song
-        search = await wavelink.YouTubeTrack.search(query=song, return_first=True)
+        tracks = await wavelink.Playable.search(song, source=wavelink.TrackSource.YouTube)
+        track = tracks[0]
 
         # Define variables
         vc = interaction.guild.voice_client
@@ -131,6 +136,7 @@ class Music(commands.Cog):
             if not vc:
                 custom_player = CustomPlayer()
                 vc: CustomPlayer = await interaction.user.voice.channel.connect(cls=custom_player)
+                vc.autoplay = wavelink.AutoPlayMode.disabled
         except Exception as e:
             title = "❌ Please join a voice channel first"
             color = self.CONSTANTS.RED
@@ -142,18 +148,18 @@ class Music(commands.Cog):
                 raise Exception
             
             # Adds song to queue if song already present
-            if vc.is_playing():
-                vc.queue.put(item=search)
+            if vc.playing:
+                await vc.queue.put_wait(track)
                 title = "✅ Added song to queue"
 
             # Play song if no songs are present in queue
             else:
-                await vc.play(search)
+                await vc.play(track, replace=False)
                 title = "▶️ Now Playing"
 
-            description = f"{search.title}"
+            description = f"{track.title}"
             color = self.CONSTANTS.GREEN
-            url = search.uri
+            url = track.uri
 
         # Handle exceptions
         except Exception as e:
@@ -173,14 +179,14 @@ class Music(commands.Cog):
     @app_commands.command(name="skip", description="Skips the currently playing song")
     async def skip(self, interaction: discord.Interaction) -> None:
         # Define variables
-        vc = interaction.guild.voice_client
+        vc: CustomPlayer = interaction.guild.voice_client
         message = ""
         color = None
 
         # Check if bot is in a voice channel
         if vc:
             # Send error if nothing is playing
-            if not vc.is_playing():
+            if not vc.playing:
                 message = "❌ Nothing is playing"
                 color = self.CONSTANTS.RED
 
@@ -190,16 +196,16 @@ class Music(commands.Cog):
 
             # Skip song, error will only be thrown if nothing is playing
             try:
-                await vc.seek(vc.track.length * 1000)
+                await vc.skip()
             except Exception as e:
                 pass
             message = "⏭️ Song Skipped"
             color = self.CONSTANTS.GREEN
-            
 
             # Resume playback after skip
-            if vc.is_paused():
-                await vc.resume()
+            if vc.paused == True:
+                await vc.pause(False)
+
         # Error if bot is not connected to voice channel
         else:
             message = "❌ Bot is not connected to voice channel"
@@ -217,15 +223,15 @@ class Music(commands.Cog):
     @app_commands.command(name="pause", description="Pauses music playback")
     async def pause(self, interaction: discord.Interaction) -> None:
         # Define variables
-        vc = interaction.guild.voice_client
+        vc: CustomPlayer = interaction.guild.voice_client
         message = ""
         color = None
 
         # Check if bot is connected to a voice channel
         if vc:
             # Pause playback if something is playing
-            if vc.is_playing() and not vc.is_paused():
-                await vc.pause()
+            if vc.playing and not vc.paused:
+                await vc.pause(True)
                 message = "⏸️ Playback paused"
                 color = self.CONSTANTS.GREEN
             # Error if nothing is already playing
@@ -249,15 +255,15 @@ class Music(commands.Cog):
     @app_commands.command(name="resume", description="Resumes music playback")
     async def resume(self, interaction: discord.Interaction) -> None:
         # Define variables
-        vc = interaction.guild.voice_client
+        vc: CustomPlayer = interaction.guild.voice_client
         message = ""
         color = None
 
         # Check if bot is connected to a voice channel
         if vc:
             # Resume playback if nothing is playing
-            if vc.is_paused():
-                await vc.resume()
+            if vc.paused:
+                await vc.pause(False)
                 message = "▶️ Playback resumed"
                 color = self.CONSTANTS.GREEN
             # Error if something is already playing
@@ -284,7 +290,7 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         # Define variables
-        vc = interaction.guild.voice_client
+        vc: CustomPlayer = interaction.guild.voice_client
         embed = None
         embed_queue = ""
 
@@ -299,7 +305,7 @@ class Music(commands.Cog):
             embed.set_footer(text=self.CONSTANTS.FOOTER)
 
             # Sets embed element to be currently playing song, if any
-            currently_playing = vc.track
+            currently_playing = vc.current
             if currently_playing == None:
                 embed.add_field(name=f"**▶️ Currently Playing**", value="Nothing Is Playing", inline=False)
             else:
@@ -330,7 +336,7 @@ class Music(commands.Cog):
         if isinstance(error, commands.BadArgument):
             message = "❌ Could not find song"
         else:
-            message = "❌ Please join a voice channel"
+            message = f"❌ Please join a voice channel"
 
         # Create embed
         embed = discord.Embed(title=message, color=self.CONSTANTS.RED)
