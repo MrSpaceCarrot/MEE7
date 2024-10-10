@@ -1,9 +1,12 @@
 # Module imports
 import random
+import logging
+import logging.handlers
 
 import discord
 from discord.ext import commands
 
+import logs
 from constants import Constants
 
 
@@ -11,24 +14,27 @@ from constants import Constants
 def run_bot():
     # Load constants and token
     CONSTANTS = Constants()
-    TOKEN = CONSTANTS.TOKEN
+    TOKEN: str = CONSTANTS.TOKEN
 
+    # Setup logging
+    root_logger: logging.Logger = logs.setup_logger(logging.getLogger(''), CONSTANTS.ROOTLOGLEVEL)
+    discord_logger: logging.Logger = logs.setup_logger(logging.getLogger('discord'), CONSTANTS.DISCORDLOGLEVEL)
+    commands_logger: logging.Logger = logs.setup_logger(logging.getLogger('commands'), CONSTANTS.COMMANDSLOGLEVEL)
+    wavelink_logger: logging.Logger = logs.setup_logger(logging.getLogger('wavelink'), CONSTANTS.WAVELINKLOGLEVEL)
+    database_logger: logging.Logger = logs.setup_logger(logging.getLogger('database'), CONSTANTS.DATABASELOGLEVEL)
+    
     # Pick random bot activity
-    activity_type = random.randint(1, 3)
-    activity = None
+    activity_type: int = random.randint(1, 3)
+    activity: discord.Activity = None
     match activity_type:
-        case 1:
-            activity = activity=discord.Activity(type=discord.ActivityType.playing, name=random.choice(CONSTANTS.STATUSES_PLAYING))
-        case 2:
-            activity = activity=discord.Activity(type=discord.ActivityType.watching, name=random.choice(CONSTANTS.STATUSES_WATCHING))
-        case 3:
-            activity = activity=discord.Activity(type=discord.ActivityType.listening, name=random.choice(CONSTANTS.STATUSES_LISTENING))
+        case 1: activity = activity=discord.Activity(type=discord.ActivityType.playing, name=random.choice(CONSTANTS.STATUSES_PLAYING))
+        case 2: activity = activity=discord.Activity(type=discord.ActivityType.watching, name=random.choice(CONSTANTS.STATUSES_WATCHING))
+        case 3: activity = activity=discord.Activity(type=discord.ActivityType.listening, name=random.choice(CONSTANTS.STATUSES_LISTENING))
 
     # Create client and set intents
     client = commands.Bot(command_prefix="$", intents=discord.Intents.all(), activity=activity)
 
-    # On ready event
-    # Runs when the bot starts up
+    # On ready event, runs when the bot starts up
     @client.event
     async def on_ready():
         try:
@@ -41,10 +47,9 @@ def run_bot():
 
         # Handle exceptions
         except Exception as e:
-            print(e)
+            root_logger.error(e)
 
-        print("Startup complete")
-        print(f"{client.user} is now running!")
+        root_logger.info(f"{client.user} is now running!")
 
 
-    client.run(TOKEN)
+    client.run(TOKEN, log_handler=None)

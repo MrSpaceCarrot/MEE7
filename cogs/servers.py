@@ -1,4 +1,5 @@
 # Module Imports
+import logging
 import requests
 
 import discord
@@ -16,21 +17,19 @@ class Servers(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.CONSTANTS = Constants()
+        self.commands_logger: logging.Logger = logging.getLogger("commands")
 
     # Function to see if server is running
     async def check_server_running(self, server) -> bool:
         # Get server uuid
-        server_info = serversdb.get_server_information(server)
+        server_uuid: str = serversdb.get_server_property(server, "uuid")
 
         # Return false if server does not exist
-        if server_info == None:
-            return None
+        if not server_uuid : return None
 
-        # Check server_info for running
-        server_uuid = server_info["uuid"]
-        response = requests.get(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/resources", headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'})
+        response: requests.Response = requests.get(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/resources", headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'})
         content = response.json()
-        running = content["attributes"]["current_state"]
+        running: str = content["attributes"]["current_state"]
 
         # Return result
         return True if running == "running" else False
@@ -38,46 +37,50 @@ class Servers(commands.Cog):
     # Server List Command
     @app_commands.command(name="server-list", description="Lists all available servers you can start up")
     async def serverlist(self, interaction: discord.Interaction) -> None:
+        # Log Command
+        self.commands_logger.info(f"/server-list executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
         # Create embed
-        embed = discord.Embed(title="📜 Server List",
+        embed: discord.Embed = discord.Embed(title="📜 Server List",
                               description="All servers that can be run with the /start-server command. Use /server-help to find out more about each server",
                               color=self.CONSTANTS.GREEN)
         
-        categories = serversdb.get_categories()
+        categories: list = serversdb.get_categories()
         for category in categories:
-            embed.add_field(name=f"**{category}**", value=", ".join(serversdb.get_server_names(category)), inline=False)
+            embed.add_field(name=f"**{category}**", value=", ".join(serversdb.get_server_properties(category, "name")), inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
 
         # Send embed
-        print(f"/server-list executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
         await interaction.response.send_message(embed=embed)
 
     # Start Server Command
     @app_commands.command(name="server-start", description="Starts a specified server")
     @app_commands.describe(server="Server name")
     async def serverstart(self, interaction: discord.Interaction, server: str) -> None:
+        # Log Command
+        self.commands_logger.info(f"/server-start executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
         # Define variables for embed
-        server = server.lower()
-        server = server.capitalize()
-        title = None
-        description = None
-        success = False
-        embed_color = None
-        running = await self.check_server_running(server)
+        server: str = (server.lower()).capitalize()
+        title: str = ""
+        description: str = ""
+        success: bool = False
+        embed_color: discord.Color = None
+        running: bool = await self.check_server_running(server)
 
         # Check if server is already running, fail if so
         if running == True or running == None:
             success = False
         else:
             # Try to start server
-            server_info = serversdb.get_server_information(server)
-            server_uuid = server_info["uuid"]
-            response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/power", 
+            server_info: dict = serversdb.get_server_information(server)
+            server_uuid: str = server_info["uuid"]
+            response: requests.Response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/power", 
                                      headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'}, 
                                      json={'signal': 'start'})
             
             # Check response code
-            request_code = response.status_code
+            request_code: int = response.status_code
             if request_code == 204:
                 success = True
 
@@ -86,50 +89,56 @@ class Servers(commands.Cog):
             title = f"✅ Successfully starting the {server} server"
             description = ""
             embed_color = self.CONSTANTS.GREEN
+            self.commands_logger.debug("Successfully starting server")
+
         else:
             # If running is true, server must already be online
             if running == True:
                 title = f"❌ {server} is already online"
                 description = ""
                 embed_color = self.CONSTANTS.RED
+                self.commands_logger.debug("Bot cannot start server, server already online")
+
             # If running is false, server must be invalid
             else:
                 title = f"❌ {server} is not a valid server"
                 description = "Run /server-list to get a list of valid servers"
                 embed_color = self.CONSTANTS.RED
-
-        # Create embed
-        embed = discord.Embed(title=title, description=description, color=embed_color)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+                self.commands_logger.debug("Bot cannot start server, server name is not valid")
 
         # Send embed
-        print(f"/server-start executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+        embed: discord.Embed = discord.Embed(title=title, description=description, color=embed_color)
+        embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Server help command
     @app_commands.command(name="server-help", description="Lists info about a specified server")
     @app_commands.describe(server="Server name")
     async def serverhelp(self, interaction: discord.Interaction, server: str) -> None:
+        # Log Command
+        self.commands_logger.info(f"/server-help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
         # Get server info and assign it to variables, set embed to error if no such server exists
-        server_info = serversdb.get_server_information(server)
-        if server_info == None:
-            embed = discord.Embed(title=f"❌ {server} is not a valid server",
+        server_info: dict = serversdb.get_server_information(server)
+        if not server_info:
+            embed: discord.Embed = discord.Embed(title=f"❌ {server} is not a valid server",
                                   description="Run /server-list to get a list of valid servers", color=self.CONSTANTS.RED)
+            self.commands_logger.debug("Bot cannot return server information, server name is not valid")
         else:
-            name = server_info["name"]
-            description = server_info["description"]
-            version = server_info["version"]
-            modloader = server_info["modloader"]
-            modlist = server_info["modlist"]
-            moddownload = server_info["moddownload"]
-            active = server_info["active"]
-            modconditions = server_info["modconditions"]
-            emoji = server_info["emoji"]
-            domain = server_info["domain"]
-            server = server.lower().capitalize()
+            name: str = server_info["name"]
+            description: str = server_info["description"]
+            version: str = server_info["version"]
+            modloader: str = server_info["modloader"]
+            modlist: str = server_info["modlist"]
+            moddownload: str = server_info["moddownload"]
+            active: int = server_info["active"]
+            modconditions: str = server_info["modconditions"]
+            emoji: str = server_info["emoji"]
+            domain: str = server_info["domain"]
+            server: str = server.lower().capitalize()
 
             # Create embed
-            embed = discord.Embed(title=f"{emoji} {name}", description=description, color=self.CONSTANTS.GREEN)
+            embed: discord.Embed = discord.Embed(title=f"{emoji} {name}", description=description, color=self.CONSTANTS.GREEN)
             embed.add_field(name="**💻 Version**", value=f"{version} {modloader}", inline=False)
 
             # Add domain to embed
@@ -158,41 +167,46 @@ class Servers(commands.Cog):
             else:
                 embed.add_field(name="**🔴 Status**", value="This server is currently offline", inline=False)
 
+            self.commands_logger.debug("Successfully returned server information")
+
         # Send embed
         embed.set_footer(text=self.CONSTANTS.FOOTER)
-        print(f"/server-help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
         await interaction.response.send_message(embed=embed)
 
     # Active servers command
     @app_commands.command(name="active-servers", description="Lists all currently running servers")
     async def activeservers(self, interaction: discord.Interaction) -> None:
+        # Log Command
+        self.commands_logger.info(f"/active-servers executed by {interaction.user} in #{interaction.guild}")
+
         # Defer interaction
         await interaction.response.defer()
 
         # Define variables for embed
-        title = "🟢 Servers currently online"
-        description = []
-        description_final = ""
+        title: str = "🟢 Servers currently online"
+        description: list = []
+        description_final: str = ""
 
         # Loop through all servers, add running ones to the list
-        servers = serversdb.get_server_names("All")
+        servers: list = serversdb.get_server_properties("All", "name")
         for server in servers:
             if await self.check_server_running(server):
                 description.append(server)
 
         # Add all running servers to a string
         for i in description:
+            
+            # If only one server is running, no comma needed
             if len(description_final) == 0:
                 description_final = description_final + i
+
+            # Add comma if more than one server running
             elif len(description_final):
                 description_final = description_final + f", {i}"
 
-        # Create embed
-        embed = discord.Embed(title=title, description=description_final, color=self.CONSTANTS.GREEN)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
-
         # Send embed
-        print(f"/active-servers executed by {interaction.user} in #{interaction.guild}")
+        embed: discord.Embed = discord.Embed(title=title, description=description_final, color=self.CONSTANTS.GREEN)
+        embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.followup.send(embed=embed)
 
 

@@ -1,11 +1,11 @@
 # Handle response function
-def handle_response(message, userid) -> str:
+def handle_response(message: str, userid: str) -> str:
     # Lower mesage
     message = message.lower()
 
     # Handle response
-    banned = handle_banned_words(message,userid)
-    custom_response = handle_custom_response(message, userid)
+    banned: str = handle_banned_words(message,userid)
+    custom_response: str = handle_custom_response(message, userid)
 
     # Return response if either function returned anything
     if banned != None:
@@ -16,7 +16,7 @@ def handle_response(message, userid) -> str:
         return None
     
 # Handle banned words function
-def handle_banned_words(message, userid) -> str:
+def handle_banned_words(message: str, userid: str) -> str:
     # List of all banned words
     banned_words = [
         "https://tenor.com/view/fnf-fridaynightfunkin-fnf-mod-fnf-players-be-like-furries-be-like-gif-25259051"
@@ -28,7 +28,7 @@ def handle_banned_words(message, userid) -> str:
     
 
 # Handle custom response function
-def handle_custom_response(message, userid) -> str:
+def handle_custom_response(message: str, userid: str) -> str:
     # If/else of custom responses from bot
     if message == "wafflehipponuts":
         return "Congrats! You found this very obscure response!"

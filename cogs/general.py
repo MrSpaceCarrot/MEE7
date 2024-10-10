@@ -1,4 +1,6 @@
 # Module Imports
+import logging
+
 import discord
 from discord import app_commands
 from discord.app_commands import Choice
@@ -15,14 +17,15 @@ class General(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.CONSTANTS = Constants()
+        self.commands_logger: logging.Logger = logging.getLogger("commands")
 
     # Message listener
     @commands.Cog.listener()
     async def on_message(self, message: str) -> str | None:
         # Get variables from message
-        username = str(message.author)
-        user_message = str(message.content)
-        user_id = str(message.author.id)
+        username: str = str(message.author)
+        user_message: str = str(message.content)
+        user_id: str = str(message.author.id)
 
         # Return if message was sent by the bot
         if username == self.client.user:
@@ -30,7 +33,7 @@ class General(commands.Cog):
 
         # Get response from responses and send it
         try:
-            response = responses.handle_response(user_message, user_id)
+            response: str = responses.handle_response(user_message, user_id)
             
             # Return if no response was found, send response otherwise
             if response == None:
@@ -43,21 +46,21 @@ class General(commands.Cog):
         
         # Handle exceptions
         except Exception as e:
-            print(e)
+            self.commands_logger.error(e)
 
     # Help command
     @app_commands.command(name="help", description="Lists all available commands")
     async def help(self, interaction: discord.Interaction) -> None:
-        # Create embed
-        embed = discord.Embed(title="Commands", description="All commands, sorted by type", color=self.CONSTANTS.GREEN)
+        # Log Command
+        self.commands_logger.info(f"/help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
+        # Send embed
+        embed: discord.Embed = discord.Embed(title="Commands", description="All commands, sorted by type", color=self.CONSTANTS.GREEN)
         embed.add_field(name="**General**", value="/help, /activity", inline=False)
-        embed.add_field(name="**Servers**", value="/ip, /server-list, /server-start, /server-help, /active-servers", inline=False)
+        embed.add_field(name="**Servers**", value="/server-list, /server-start, /server-help, /active-servers", inline=False)
         embed.add_field(name="**Music**", value="/connect, /disconnect, /play, /skip, /pause, /resume, /queue", inline=False)
         embed.add_field(name="**Fun**", value="/catpic, /insult, /shu-todoroki", inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
-
-        # Send embed
-        print(f"/help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
         await interaction.response.send_message(embed=embed)
 
     # Activity command
@@ -67,21 +70,18 @@ class General(commands.Cog):
                                 Choice(name="Watching", value="Watching"), 
                                 Choice(name="Listening to", value="Listening")])
     async def activity(self, interaction: discord.Interaction, type: str, text: str) -> None:
+        # Log Command
+        self.commands_logger.info(f"/activity {type} {text} executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
         # Determine activity type, set bot activity
         match type.lower():
-            case "playing":
-                await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name=text))
-            case "watching":
-                await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=text))
-            case "listening":
-                await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=text))
-
-        # Create embed
-        embed = discord.Embed(title="✅ Bot activity has been changed", description="", color=self.CONSTANTS.GREEN)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+            case "playing": await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name=text))
+            case "watching": await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=text))
+            case "listening": await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=text))
 
         # Send embed
-        print(f"/activity {type} {text} executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+        embed: discord.Embed = discord.Embed(title="✅ Bot activity has been changed", description="", color=self.CONSTANTS.GREEN)
+        embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.send_message(embed=embed)
         
 
