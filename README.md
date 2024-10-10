@@ -1,5 +1,5 @@
 # MEE7
-Personal discord bot, with a variety of features
+Personal discord bot with a variety of features
 
 # Features
 - Startup game servers that are located on a pterodactyl panel instance

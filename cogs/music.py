@@ -52,7 +52,7 @@ class Music(commands.Cog):
         self.wavelink_logger.debug(f"Track ended: {payload.track.title}, reason: {payload.reason}")
         # If the queue is not empty, play the next track
         player: wavelink.Player  = payload.player
-        if not player.queue.is_empty:
+        if player and not player.queue.is_empty:
             next_track = player.queue.get()
             await player.play(next_track)
 
@@ -66,6 +66,19 @@ class Music(commands.Cog):
             if member.guild.voice_client:
                 # Kick bot
                 await member.guild.voice_client.disconnect()
+
+    # Function to convert milliseconds as given by wavelink playables into hh:mm:ss or mm:ss
+    async def convert_milliseconds(self, length: int) -> str:
+        total_seconds: int = length // 1000
+        hours: int = total_seconds // 3600
+        minutes: int = (total_seconds % 3600) // 60
+        seconds: int = total_seconds % 60
+        if hours > 0:
+            final_length = f"{hours}:{minutes:02}:{seconds:02}"
+        else:
+            final_length = f"{minutes:02}:{seconds:02}"
+        self.commands_logger.debug(f"Length of {final_length} returned")
+        return final_length
 
     # Connect command
     @app_commands.command(name="connect", description="Connects the bot to a voice channel")
@@ -138,16 +151,14 @@ class Music(commands.Cog):
         # Log Command
         self.commands_logger.info(f"/play {song} executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
-        # Search YouTube for song
-        tracks: wavelink.Search = await wavelink.Playable.search(song, source=wavelink.TrackSource.YouTube)
-        track: wavelink.Playable = tracks[0]
-
         # Define variables
         vc: CustomPlayer = interaction.guild.voice_client
         title: str = ""
         description: str = ""
         color: discord.Color = None
         url: str = None
+        thumbnail_url: str = None
+        results_found: bool = True
 
         # Main try/except block
         try:
@@ -156,6 +167,17 @@ class Music(commands.Cog):
                 custom_player = CustomPlayer()
                 vc = await interaction.user.voice.channel.connect(cls=custom_player)
                 vc.autoplay = wavelink.AutoPlayMode.disabled
+
+            # Search YouTube for song
+            tracks: wavelink.Search = await wavelink.Playable.search(song, source=wavelink.TrackSource.YouTube)
+
+            # If no results are found raise an error
+            if not tracks:
+                results_found = False
+                raise Exception
+            
+            track: wavelink.Playable = tracks[0]
+            self.commands_logger.debug(f"{track.title} found")
             
             # Adds song to queue if song already present
             if vc.playing:
@@ -172,15 +194,21 @@ class Music(commands.Cog):
             description = track.title
             color = self.CONSTANTS.GREEN
             url = track.uri
+            thumbnail_url = track.artwork
                 
         # Handle user not being in vc
-        except Exception:
-            title = "❌ Please join a voice channel first"
+        except Exception as e:
             color = self.CONSTANTS.RED
-            self.commands_logger.debug("Bot cannot connect to voice channel, user not in voice channel")
+            if results_found == False:
+                title = "❌ No song with that name could be found"
+                self.commands_logger.debug("Bot cannot connect to find song, no results")
+            else:
+                title = "❌ Please join a voice channel first"
+                self.commands_logger.debug("Bot cannot connect to voice channel, user not in voice channel")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=title, description=description, color=color, url=url)
+        embed.set_thumbnail(url=thumbnail_url)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.send_message(embed=embed)
 
@@ -194,6 +222,7 @@ class Music(commands.Cog):
         vc: CustomPlayer = interaction.guild.voice_client
         message: str = ""
         color: discord.Color = None
+        description: str = ""
 
         # Check if bot is in a voice channel
         if vc:
@@ -211,6 +240,9 @@ class Music(commands.Cog):
                 message = "⏭️ Song Skipped"
                 color = self.CONSTANTS.GREEN
 
+                if not vc.queue.is_empty:
+                    description = f"Now Playing: [{vc.current.title}]({vc.current.uri})"
+
                 # Resume playback after skip
                 if vc.paused == True:
                     await vc.pause(False)
@@ -222,7 +254,7 @@ class Music(commands.Cog):
             self.commands_logger.debug("Bot cannot skip song, bot not in voice channel")
 
         # Send embed
-        embed: discord.Embed = discord.Embed(title=message, color=color)
+        embed: discord.Embed = discord.Embed(title=message, description=description, color=color)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.send_message(embed=embed)
 
@@ -325,24 +357,30 @@ class Music(commands.Cog):
             embed.set_footer(text=self.CONSTANTS.FOOTER)
 
             # Sets embed element to be currently playing song, if any
-            currently_playing = vc.current
-            if currently_playing == None:
+            if not vc.current:
                 embed.add_field(name=f"**▶️ Currently Playing**", value="Nothing Is Playing", inline=False)
             else:
-                embed.add_field(name=f"**▶️ Currently Playing**", value=currently_playing, inline=False)
+                current_position: str = await self.convert_milliseconds(vc.position)
+                current_length: str = await self.convert_milliseconds(vc.current.length)
+                embed.add_field(name=f"**▶️ Currently Playing**", value=f"[{vc.current.title}]({vc.current.uri}) `{current_position}`/`{current_length}`", inline=False)
 
             # Collects songs in queue and adds them to the embed
+            queue_position: int = 1
             for item in vc.queue:
-                embed_queue = embed_queue + str(item) + "\n"
+                current_length: str = await self.convert_milliseconds(item.length)
+                embed_queue = embed_queue + f"{queue_position}) [{item.title}]({item.uri}) `{current_length}`\n"
+                queue_position += 1
             if embed_queue == "":
                 embed_queue = "Nothing Is Queued"
             embed.add_field(name=f"**⏭️ Up Next**", value=embed_queue, inline=False)
+            
             self.commands_logger.debug("Queue successfully returned")
 
         # Handles exception if user is not in a voice channel
-        except Exception:
+        except Exception as e:
             embed: discord.Embed = discord.Embed(title="❌ Please join a voice channel first", color=self.CONSTANTS.RED)
             self.commands_logger.debug("Bot cannot return queue, bot not in voice channel")
+            self.commands_logger.error(e)
 
         # Send embed
         await interaction.followup.send(embed=embed)
