@@ -240,7 +240,7 @@ class Music(commands.Cog):
                 message = "⏭️ Song Skipped"
                 color = self.CONSTANTS.GREEN
 
-                if not vc.queue.is_empty:
+                if vc.playing:
                     description = f"Now Playing: [{vc.current.title}]({vc.current.uri})"
 
                 # Resume playback after skip
