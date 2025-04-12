@@ -39,7 +39,7 @@ class General(commands.Cog):
             if response == None:
                 return
             elif response == "DELETE":
-                await message.channel.send("That message as a bit cringe init")
+                await message.channel.send("That message was a bit cringe init")
                 await message.delete()
             else:
                 await message.channel.send(response)
@@ -55,11 +55,12 @@ class General(commands.Cog):
         self.commands_logger.info(f"/help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
         # Send embed
-        embed: discord.Embed = discord.Embed(title="Commands", description="All commands, sorted by type", color=self.CONSTANTS.GREEN)
+        embed: discord.Embed = discord.Embed(title="Commands", description="All commands, sorted by type", color=self.CONSTANTS.BLUE)
         embed.add_field(name="**General**", value="/help, /activity", inline=False)
         embed.add_field(name="**Servers**", value="/server-list, /server-start, /server-help, /active-servers", inline=False)
         embed.add_field(name="**Music**", value="/connect, /disconnect, /play, /skip, /pause, /resume, /queue", inline=False)
         embed.add_field(name="**Fun**", value="/catpic, /shu-todoroki, /slander", inline=False)
+        embed.add_field(name="**Economy**", value="/bailout, /balance, /blackjack, /exchange, /leaderboard", inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.send_message(embed=embed)
 
@@ -80,7 +81,7 @@ class General(commands.Cog):
             case "listening": await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=text))
 
         # Send embed
-        embed: discord.Embed = discord.Embed(title="✅ Bot activity has been changed", description="", color=self.CONSTANTS.GREEN)
+        embed: discord.Embed = discord.Embed(title="✅ Bot activity has been changed", description="", color=self.CONSTANTS.BLUE)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.send_message(embed=embed)
         

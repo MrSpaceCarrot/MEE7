@@ -19,7 +19,8 @@ class Constants():
         self.DBHOST: str = data["DATABASE"]["DBHOST"]
         self.DBUSERNAME: str = data["DATABASE"]["DBUSERNAME"]
         self.DBPASSWORD: str = data["DATABASE"]["DBPASSWORD"]
-        self.DBDATABASE: str = data["DATABASE"]["DBDATABASE"]
+        self.DBSERVERSDATABASE: str = data["DATABASE"]["DBSERVERSDATABASE"]
+        self.DBMEE7DATABASE: str = data["DATABASE"]["DBMEE7DATABASE"]
 
         # Wavelink
         self.WLHOST: str = data["WAVELINK"]["WLHOST"]
@@ -36,13 +37,16 @@ class Constants():
         self.COMMANDSLOGLEVEL: str = data["LOGGING"]["COMMANDSLOGLEVEL"]
         self.WAVELINKLOGLEVEL: str = data["LOGGING"]["WAVELINKLOGLEVEL"]
         self.DATABASELOGLEVEL: str = data["LOGGING"]["DATABASELOGLEVEL"]
+        self.ECONOMYLOGLEVEL: str = data["LOGGING"]["ECONOMYLOGLEVEL"]
 
         # Strings
         self.FOOTER: str = "Beep Boop"
 
         # Colors
+        self.BLUE: discord.Color = discord.Color.from_rgb(37, 150, 190)
         self.RED: discord.Color = discord.Color.from_rgb(252, 0, 0)
         self.GREEN: discord.Color = discord.Color.from_rgb(0, 252, 0)
+        self.YELLOW: discord.Color = discord.Color.from_rgb(252, 252, 0)
 
         # Bot statuses
         self.STATUSES_PLAYING: list[str] = [

@@ -4,7 +4,7 @@ def handle_response(message: str, userid: str) -> str:
     message = message.lower()
 
     # Handle response
-    banned: str = handle_banned_words(message,userid)
+    banned: str = handle_banned_words(message, userid)
     custom_response: str = handle_custom_response(message, userid)
 
     # Return response if either function returned anything

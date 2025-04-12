@@ -7,7 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from constants import Constants
-import serversdb
+import dbmanager
 
 
 # Main cog class
@@ -22,7 +22,7 @@ class Servers(commands.Cog):
     # Function to see if server is running
     async def check_server_running(self, server) -> bool:
         # Get server uuid
-        server_uuid: str = serversdb.get_server_property(server, "uuid")
+        server_uuid: str = dbmanager.get_server_property(server, "uuid")
 
         # Return false if server does not exist
         if not server_uuid : return None
@@ -43,11 +43,11 @@ class Servers(commands.Cog):
         # Create embed
         embed: discord.Embed = discord.Embed(title="📜 Server List",
                               description="All servers that can be run with the /start-server command. Use /server-help to find out more about each server",
-                              color=self.CONSTANTS.GREEN)
+                              color=self.CONSTANTS.BLUE)
         
-        categories: list = serversdb.get_categories()
+        categories: list = dbmanager.get_categories()
         for category in categories:
-            embed.add_field(name=f"**{category}**", value=", ".join(serversdb.get_server_properties(category, "name")), inline=False)
+            embed.add_field(name=f"**{category}**", value=", ".join(dbmanager.get_server_properties(category, "name")), inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
 
         # Send embed
@@ -73,7 +73,7 @@ class Servers(commands.Cog):
             success = False
         else:
             # Try to start server
-            server_info: dict = serversdb.get_server_information(server)
+            server_info: dict = dbmanager.get_server_information(server)
             server_uuid: str = server_info["uuid"]
             response: requests.Response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/power", 
                                      headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'}, 
@@ -119,7 +119,7 @@ class Servers(commands.Cog):
         self.commands_logger.info(f"/server-help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
         # Get server info and assign it to variables, set embed to error if no such server exists
-        server_info: dict = serversdb.get_server_information(server)
+        server_info: dict = dbmanager.get_server_information(server)
         if not server_info:
             embed: discord.Embed = discord.Embed(title=f"❌ {server} is not a valid server",
                                   description="Run /server-list to get a list of valid servers", color=self.CONSTANTS.RED)
@@ -138,7 +138,7 @@ class Servers(commands.Cog):
             server: str = server.lower().capitalize()
 
             # Create embed
-            embed: discord.Embed = discord.Embed(title=f"{emoji} {name}", description=description, color=self.CONSTANTS.GREEN)
+            embed: discord.Embed = discord.Embed(title=f"{emoji} {name}", description=description, color=self.CONSTANTS.BLUE)
             embed.add_field(name="**💻 Version**", value=f"{version} {modloader}", inline=False)
 
             # Add domain to embed
@@ -188,7 +188,7 @@ class Servers(commands.Cog):
         description_final: str = ""
 
         # Loop through all servers, add running ones to the list
-        servers: list = serversdb.get_server_properties("All", "name")
+        servers: list = dbmanager.get_server_properties("All", "name")
         for server in servers:
             if await self.check_server_running(server):
                 description.append(server)
@@ -205,7 +205,7 @@ class Servers(commands.Cog):
                 description_final = description_final + f", {i}"
 
         # Send embed
-        embed: discord.Embed = discord.Embed(title=title, description=description_final, color=self.CONSTANTS.GREEN)
+        embed: discord.Embed = discord.Embed(title=title, description=description_final, color=self.CONSTANTS.BLUE)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.followup.send(embed=embed)
 

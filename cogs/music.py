@@ -353,7 +353,7 @@ class Music(commands.Cog):
                 vc: CustomPlayer = await interaction.user.voice.channel.connect(cls=custom_player)
 
             # Create embed
-            embed: discord.Embed = discord.Embed(title="Music Queue", color=self.CONSTANTS.GREEN)
+            embed: discord.Embed = discord.Embed(title="Music Queue", color=self.CONSTANTS.BLUE)
             embed.set_footer(text=self.CONSTANTS.FOOTER)
 
             # Sets embed element to be currently playing song, if any

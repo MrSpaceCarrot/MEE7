@@ -37,7 +37,7 @@ class Fun(commands.Cog):
         final_url = json.loads(request.text)[0]["url"]
 
         # Send embed
-        embed = discord.Embed(title="", color=self.CONSTANTS.GREEN)
+        embed = discord.Embed(title="", color=self.CONSTANTS.BLUE)
         embed.set_image(url=final_url)
         await interaction.followup.send(embed=embed)
 
