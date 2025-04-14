@@ -8,6 +8,7 @@ from discord.ext import commands
 
 import logs
 from constants import Constants
+import database.models
 
 
 # Main function
@@ -50,6 +51,9 @@ def run_bot():
         # Handle exceptions
         except Exception as e:
             root_logger.error(e)
+
+        # Initialize DB
+        database.models.init_db()
 
         root_logger.info(f"{client.user} is now running!")
 

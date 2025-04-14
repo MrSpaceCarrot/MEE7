@@ -2,6 +2,7 @@
 import logging
 from datetime import time
 from zoneinfo import ZoneInfo
+from typing import List
 
 import discord
 from discord import app_commands
@@ -13,7 +14,8 @@ import pydealer
 from scipy.stats import truncnorm
 
 from constants import Constants
-import dbmanager
+import database.operations
+from database.models import Currency, UserCurrency
 
 # Format currency
 def format_currency(currency):
@@ -66,14 +68,12 @@ def calculate_hand_value(deck):
 # Views
 # Exchange view
 class ExchangeView(discord.ui.View):
-    def __init__(self, user: discord.User, currency_start: str, currency_end: str, amount: float):
+    def __init__(self, user: discord.User, currency_start: UserCurrency, currency_end: UserCurrency, amount: float):
         super().__init__(timeout=300)
         self.CONSTANTS = Constants()
         self.user = user
         self.currency_start = currency_start
-        self.currency_start_formatted = ""
         self.currency_end = currency_end
-        self.currency_end_formatted = ""
         self.currency_end_amount_gained = 0
         self.amount = amount
         self.economy_logger: logging.Logger = logging.getLogger("economy")
@@ -85,29 +85,14 @@ class ExchangeView(discord.ui.View):
     # Update embed
     async def refresh(self) -> discord.Embed:
         # Get exchange rates
-        exchange_rates = dbmanager.get_all_exchange_rates()
-
-        # Format currencies
-        self.currency_start_formatted = format_currency(self.currency_start)
-        self.currency_end_formatted = format_currency(self.currency_end)
-        
-        # Get starting currency exchange rate
-        currency_start_exchange_rate = 0
-        for rate in exchange_rates:
-            if rate["name"] == self.currency_start:
-                currency_start_exchange_rate = rate["exchange_rate"]
-
-        # Get exchange rate of currency being gained
-        currency_end_exchange_rate = 0
-        for rate in exchange_rates:
-            if rate["name"] == self.currency_end:
-                currency_end_exchange_rate = rate["exchange_rate"]
+        currency_start_exchange_rate = self.currency_start.currency.exchange_rate
+        currency_end_exchange_rate = self.currency_end.currency.exchange_rate
 
         # Calculate relative exchange rate
         relative_rate = currency_start_exchange_rate/currency_end_exchange_rate
         self.currency_end_amount_gained = self.amount * relative_rate
-        embed: discord.Embed = discord.Embed(title=f"You are about to convert ${self.amount:.2f} {self.currency_start_formatted} into ${self.currency_end_amount_gained:.2f} {self.currency_end_formatted}", 
-                                                description=f"$1 {self.currency_start_formatted} is currently equal to ${relative_rate:.2f} {self.currency_end_formatted}\nAre you sure you want to do this?",
+        embed: discord.Embed = discord.Embed(title=f"You are about to convert {self.currency_start.currency.prefix}{self.amount:.{self.currency_start.currency.decimal_places}f} {self.currency_start.currency.display_name} into {self.currency_end.currency.prefix}{self.currency_end_amount_gained:.{self.currency_end.currency.decimal_places}f} {self.currency_end.currency.display_name}", 
+                                                description=f"{self.currency_start.currency.prefix}1 {self.currency_start.currency.display_name} is currently equal to {self.currency_end.currency.prefix}{relative_rate:.2f} {self.currency_end.currency.display_name}\nAre you sure you want to do this?",
                                                 color=self.CONSTANTS.YELLOW)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         return embed
@@ -115,13 +100,22 @@ class ExchangeView(discord.ui.View):
     # Confirm Button
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
     async def confirm_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Make changes
-        user_balance = dbmanager.get_user_balance(interaction.user.id)
-        currency_start_new_balance = user_balance[self.currency_start] - self.amount
-        dbmanager.set_user_balance(self.user.id, self.currency_start, currency_start_new_balance)
+        # Get user balances
+        user_balances = database.operations.get_user_balances(interaction.user.id)
 
-        currency_end_new_balance = user_balance[self.currency_end] + self.currency_end_amount_gained
-        dbmanager.set_user_balance(self.user.id, self.currency_end, currency_end_new_balance)
+        # Update balances
+        currency_start_new_balance = 0
+        currency_end_new_balance = 0
+        for user_balance in user_balances:
+            # Decrease currency start
+            if user_balance.currency.currency_id == self.currency_start.currency.currency_id:
+                currency_start_new_balance = user_balance.balance - self.amount
+                database.operations.set_user_balance(interaction.user.id, user_balance.currency.currency_id, currency_start_new_balance)
+
+            # Increase currency end
+            if user_balance.currency.currency_id == self.currency_end.currency.currency_id:
+                currency_end_new_balance = user_balance.balance + self.currency_end_amount_gained
+                database.operations.set_user_balance(interaction.user.id, user_balance.currency.currency_id, currency_end_new_balance)
 
         # Disable buttons
         for item in self.children:
@@ -129,8 +123,8 @@ class ExchangeView(discord.ui.View):
                 item.disabled = True
 
         # Embed
-        embed: discord.Embed = discord.Embed(title=f"Converted ${self.amount:.2f} {self.currency_start_formatted} into ${self.currency_end_amount_gained:.2f} {self.currency_end_formatted}", 
-                                                description=f"Your {self.currency_start_formatted} balance is now ${currency_start_new_balance:.2f}\nYour {self.currency_end_formatted} balance is now ${currency_end_new_balance:.2f}",
+        embed: discord.Embed = discord.Embed(title=f"Converted {self.currency_start.currency.prefix}{self.amount:.{self.currency_start.currency.decimal_places}f} {self.currency_start.currency.display_name} into {self.currency_end.currency.prefix}{self.currency_end_amount_gained:.{self.currency_end.currency.decimal_places}f} {self.currency_end.currency.display_name}", 
+                                                description=f"Your {self.currency_start.currency.display_name} balance is now {currency_start_new_balance:.{self.currency_start.currency.decimal_places}f}\nYour {self.currency_end.currency.display_name} balance is now {self.currency_end.currency.prefix}{currency_end_new_balance:.{self.currency_end.currency.decimal_places}f}",
                                                 color=self.CONSTANTS.GREEN)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.edit_message(embed=embed, view=self)
@@ -149,7 +143,7 @@ class ExchangeView(discord.ui.View):
 
 # Blackjack view
 class BlackjackView(discord.ui.View):
-    def __init__(self, user: discord.User, currency: str, amount: float, deck: dict, user_hand: dict, dealer_hand: dict, user_stood: bool):
+    def __init__(self, user: discord.User, currency: Currency, amount: float, deck: dict, user_hand: dict, dealer_hand: dict, user_stood: bool):
         super().__init__(timeout=300)
         self.CONSTANTS = Constants()
         self.user = user
@@ -177,8 +171,6 @@ class BlackjackView(discord.ui.View):
                 self.dealer_hand.add(self.deck.deal(1))
                 dealer_hand_value = calculate_hand_value(self.dealer_hand)
 
-        formatted_currency = format_currency(self.currency)
-
         # Determine game outcome
         game_outcome = None
         if user_hand_value > 21:
@@ -202,33 +194,40 @@ class BlackjackView(discord.ui.View):
 
         # Format embed and payout user
         if game_outcome != None:
-            user_balance = dbmanager.get_user_balance(self.user.id)
-            user_currency_amount = user_balance[self.currency]
-            user_aura_amount = user_balance["aura"]
+            user_balance = database.operations.get_user_balance(self.user.id, self.currency.currency_id)
+            aura_balance = database.operations.get_user_balance(self.user.id, "aura")
+            
             if game_outcome == "Win":
-                title = "You Win!"
-                description = f"You won ${self.amount:.2f} {formatted_currency}\nNew balance: ${(user_currency_amount + self.amount):.2f} {formatted_currency}"
-                color=self.CONSTANTS.GREEN
-                dbmanager.set_user_balance(self.user.id, self.currency, user_balance[self.currency] + self.amount)
-                dbmanager.set_user_balance(self.user.id, "aura", user_aura_amount + 10)
+                new_currency_balance = user_balance.balance + self.amount
+                new_aura_balance = aura_balance.balance + 10
 
+                title = "You Win!"
+                description = f"You won {self.currency.prefix}{self.amount:.{self.currency.decimal_places}f} {self.currency.display_name}\nNew balance: {self.currency.prefix}{(new_currency_balance):.{self.currency.decimal_places}f} {self.currency.display_name}"
+                color=self.CONSTANTS.GREEN
+
+                database.operations.set_user_balance(self.user.id, self.currency.currency_id, new_currency_balance)
+                database.operations.set_user_balance(self.user.id, "aura", new_aura_balance)
+                
             elif game_outcome == "Lose":
+                new_currency_balance = user_balance.balance - self.amount
+                new_aura_balance = aura_balance.balance - 10
+                
                 title = "Dealer Wins!"
-                if user_currency_amount - self.amount > 0:
-                    description = f"You lost ${self.amount:.2f} {formatted_currency}\nNew balance: ${(user_currency_amount - self.amount):.2f} {formatted_currency}"
-                else:
-                    description = f"You lost ${self.amount:.2f} {formatted_currency}\nNew balance: ${(user_currency_amount - self.amount):.2f} {formatted_currency}\nYou are now eligible for a bailout (/bailout)"
                 color=self.CONSTANTS.RED
-                dbmanager.set_user_balance(self.user.id, self.currency, user_currency_amount - self.amount)
-                dbmanager.set_user_balance(self.user.id, "aura", user_aura_amount - 10)
+                description = f"You lost {self.currency.prefix}{self.amount:.{self.currency.decimal_places}f} {self.currency.display_name}\nNew balance: {self.currency.prefix}{new_currency_balance:.{self.currency.decimal_places}f} {self.currency.display_name}"
+                if new_currency_balance < 1:
+                    description = description + "\nYou are now eligible for a bailout (/bailout)"
+                
+                database.operations.set_user_balance(self.user.id, self.currency.currency_id, new_currency_balance)
+                database.operations.set_user_balance(self.user.id, "aura", new_aura_balance)
 
             elif game_outcome == "Tie":
                 title = "You Tied!"
-                description = f"You were refunded ${self.amount:.2f} {formatted_currency}\nNew balance: ${user_currency_amount:.2f} {formatted_currency}"
+                description = f"You were refunded {self.currency.prefix}{self.amount:.{self.currency.decimal_places}f} {self.currency.display_name}\nNew balance: ${user_balance.balance:.{self.currency.decimal_places}f} {self.currency.display_name}"
                 color=self.CONSTANTS.YELLOW
         else:
             title = "Blackjack"
-            description = f"Bet: ${self.amount:.2f} {formatted_currency}"
+            description = f"Bet: {self.currency.prefix}{self.amount:.{self.currency.decimal_places}f} {self.currency.display_name}"
             color=self.CONSTANTS.BLUE
         
         # Disable buttons at game end
@@ -303,19 +302,28 @@ class Economy(commands.Cog):
         self.client = client
         self.CONSTANTS = Constants()
         self.economy_logger: logging.Logger = logging.getLogger("economy")
-        self.update_exchange_rate_task.start()
+        self.update_exchange_rates_task.start()
 
-    # Update currency exchange rates every date at 6 pm
-    @tasks.loop(name="update_exchange_rate_task", time=time(hour=18, minute=0, tzinfo=ZoneInfo("Pacific/Auckland")))
-    async def update_exchange_rate_task(self):
-        # Amount changed is generated using a normal distribution
+    # Generate a random exchange rate
+    async def generate_exchange_rate(self):
         mean = 1
         low = 0.2
         high = 2
         std = 0.4
         a, b = (low - mean) / std, (high - mean) / std
-        dbmanager.update_exchange_rate("carrot_bucks", truncnorm.rvs(a, b, loc=mean, scale=std))
-        dbmanager.update_exchange_rate("sheckles", truncnorm.rvs(a, b, loc=mean, scale=std))
+        return truncnorm.rvs(a, b, loc=mean, scale=std)
+
+    # Update currency exchange rates every date at 6 pm
+    @tasks.loop(minutes=15)
+    async def update_exchange_rates_task(self):
+        # Get all currencies
+        currencies = database.operations.get_currencies()
+
+        # Update exchange rates
+        for currency in currencies:
+            if currency.can_exchange:
+                new_exchange_rate = await self.generate_exchange_rate()
+                database.operations.set_exchange_rate(currency.currency_id, new_exchange_rate)
 
     # Balance Command
     @app_commands.command(name="balance", description="Shows how much currency you currently have")
@@ -324,12 +332,17 @@ class Economy(commands.Cog):
         self.economy_logger.info(f"/balance executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
         # Get balance
-        user_balance = dbmanager.get_user_balance(interaction.user.id)
+        user_balances = database.operations.get_user_balances(interaction.user.id)
+
+        # Format balance
+        balance_string = ""
+        for user_balance in user_balances:
+            balance_string = balance_string + f"{user_balance.currency.display_name}: {'' if user_balance.currency.prefix == None else user_balance.currency.prefix}{user_balance.balance:.{user_balance.currency.decimal_places}f}\n"
 
         # Create embed
         embed: discord.Embed = discord.Embed(title=f"Balance", color=self.CONSTANTS.BLUE)
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
-        embed.add_field(name="", value=f"Carrot Bucks: ${user_balance['carrot_bucks']:.2f}\nSheckles: ${user_balance['sheckles']:.2f}\nAura: {user_balance['aura']}")
+        embed.add_field(name="", value=balance_string)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
 
         # Send embed
@@ -346,21 +359,18 @@ class Economy(commands.Cog):
         # Log Command
         self.economy_logger.info(f"/exchange executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
-        # Get balance
-        user_balance = dbmanager.get_user_balance(interaction.user.id)
-
-        # Format currencies
-        currency_start_formatted = format_currency(currency_start)
-        currency_end_formatted = format_currency(currency_end)
+        # Get balances
+        currency_start = database.operations.get_user_balance(interaction.user.id, currency_start)
+        currency_end = database.operations.get_user_balance(interaction.user.id, currency_end)
 
         # Check if user has enough to convert
-        if user_balance[currency_start] < amount:
-            embed: discord.Embed = discord.Embed(title=f"Insufficent {currency_start_formatted} balance (have ${user_balance[currency_start]}, need ${amount})", color=self.CONSTANTS.RED)
+        if currency_start.balance < amount:
+            embed: discord.Embed = discord.Embed(title=f"Insufficent {currency_start.currency.display_name} balance (have {currency_start.currency.prefix}{currency_start.balance:.{currency_start.currency.decimal_places}f}, need {currency_start.currency.prefix}{amount:.{currency_start.currency.decimal_places}f})", color=self.CONSTANTS.RED)
             embed.set_footer(text=self.CONSTANTS.FOOTER)
             await interaction.response.send_message(embed=embed)
         # Check if user is trying to convert the same currency
-        elif currency_start == currency_end:
-            embed: discord.Embed = discord.Embed(title=f"You cannot convert {currency_start_formatted} into {currency_end_formatted}", color=self.CONSTANTS.RED)
+        elif currency_start.currency.currency_id == currency_end.currency.currency_id:
+            embed: discord.Embed = discord.Embed(title=f"You cannot convert {currency_start.currency.display_name} into {currency_end.currency.display_name}", color=self.CONSTANTS.RED)
             embed.set_footer(text=self.CONSTANTS.FOOTER)
             await interaction.response.send_message(embed=embed)
         else:
@@ -379,23 +389,23 @@ class Economy(commands.Cog):
         # Log Command
         self.economy_logger.info(f"/leaderboard executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
-        # Get balances, sort
-        user_balances = dbmanager.get_all_balances()
-        user_balances = sorted(user_balances, key=lambda x: x[currency], reverse=True)
+        # Get balances
+        currency_info = database.operations.get_currency(currency)
+        user_balances = database.operations.get_all_balances(currency)
 
         # Create embed
-        embed: discord.Embed = discord.Embed(title=f"{format_currency(currency)} Leaderboard", color=self.CONSTANTS.BLUE)
+        embed: discord.Embed = discord.Embed(title=f"{currency_info.display_name} Leaderboard", color=self.CONSTANTS.BLUE)
 
-        user_positions = ""
+        user_positions_string = ""
         position = 1
-        for user in user_balances:
-            # Add user position to string, only add $ if not showing aura
-            user_positions = user_positions + f":number_{position}: <@{user['user_id']}> {'$' if currency != 'aura' else ''}{user[currency]:.2f}\n"
+        for balance in user_balances:
+            # Add user position to string, with proper prefix and rounding
+            user_positions_string = user_positions_string + f":number_{position}: <@{balance.user_id}> {'' if currency_info.prefix == None else currency_info.prefix}{balance.balance:.{currency_info.decimal_places}f}\n"
             position += 1
             # Only show top 10
             if position  == 11:
                 break
-        embed.add_field(name="", value=user_positions, inline=False)
+        embed.add_field(name="", value=user_positions_string, inline=False)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
 
         # Send embed
@@ -407,11 +417,19 @@ class Economy(commands.Cog):
         # Log Command
         self.economy_logger.info(f"/bailout executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
-        # Bailout
-        user_balance = dbmanager.get_user_balance(interaction.user.id)
-        if user_balance["carrot_bucks"] < 1 and user_balance["sheckles"] < 1:
-            dbmanager.set_user_balance(interaction.user.id, "carrot_bucks", user_balance["carrot_bucks"] + 20)
-            embed: discord.Embed = discord.Embed(title=f"$20 Carrot Bucks Added To Balance", color=self.CONSTANTS.GREEN)
+        # Get balances
+        user_balances = database.operations.get_user_balances(interaction.user.id)
+
+        # Give bailout if user is completely broke
+        needs_bailout = True
+        for balance in user_balances:
+            if balance.balance > 1 and balance.currency.can_gamble == True:
+                needs_bailout = False
+
+        # Send embed and update balance if needed
+        if needs_bailout:
+            database.operations.set_user_balance(interaction.user.id, "carrot_bucks", 20)
+            embed: discord.Embed = discord.Embed(title=f"¢20 Carrot Bucks Added To Balance", color=self.CONSTANTS.GREEN)
         else:
             embed: discord.Embed = discord.Embed(title=f"You're not broke enough for a bailout", color=self.CONSTANTS.RED)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
@@ -432,11 +450,11 @@ class Economy(commands.Cog):
         self.economy_logger.info(f"/blackjack executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
         # Get balance
-        user_balance = dbmanager.get_user_balance(interaction.user.id)
+        user_balance = database.operations.get_user_balance(interaction.user.id, currency)
         
         # Check that user is able to make their bet
-        if user_balance[currency] < amount:
-            embed: discord.Embed = discord.Embed(title=f"Insufficent balance (have ${user_balance[currency]}, need {amount})", color=self.CONSTANTS.RED)
+        if user_balance.balance < amount:
+            embed: discord.Embed = discord.Embed(title=f"Insufficent {user_balance.currency.display_name} balance (have {user_balance.currency.prefix}{user_balance.balance:.{user_balance.currency.decimal_places}f}, need {user_balance.currency.prefix}{amount:.{user_balance.currency.decimal_places}f})", color=self.CONSTANTS.RED)
             embed.set_footer(text=self.CONSTANTS.FOOTER)
             await interaction.response.send_message(embed=embed)
         else:
@@ -444,7 +462,7 @@ class Economy(commands.Cog):
             deck.shuffle()
             user_hand = deck.deal(2)
             dealer_hand = deck.deal(2)
-            view = BlackjackView(interaction.user, currency, amount, deck, user_hand, dealer_hand, False)
+            view = BlackjackView(interaction.user, user_balance.currency, amount, deck, user_hand, dealer_hand, False)
             embed = await view.refresh()
             await interaction.response.send_message(embed=embed, view=view)
         

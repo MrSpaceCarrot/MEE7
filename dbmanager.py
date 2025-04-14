@@ -27,11 +27,11 @@ def database_connection(use_dictionary: bool, database: str):
 # Get list of valid categories
 def get_categories() -> list:
     # Define db and cursor
-    db, cursor = database_connection(False, CONSTANTS.DBSERVERSDATABASE)
+    db, cursor = database_connection(False, CONSTANTS.DBDATABASE)
 
     # Get categories from db
     output = []
-    cursor.execute("SELECT name FROM servercategories ORDER BY categoryID Asc")
+    cursor.execute("SELECT name FROM servercategories ORDER BY category_id Asc")
 
     # Add retrieved categories to list
     for i in cursor:

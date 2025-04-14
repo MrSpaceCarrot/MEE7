@@ -17,10 +17,10 @@ class Constants():
 
         # Database
         self.DBHOST: str = data["DATABASE"]["DBHOST"]
+        self.DBPORT: str = data["DATABASE"]["DBPORT"]
         self.DBUSERNAME: str = data["DATABASE"]["DBUSERNAME"]
         self.DBPASSWORD: str = data["DATABASE"]["DBPASSWORD"]
-        self.DBSERVERSDATABASE: str = data["DATABASE"]["DBSERVERSDATABASE"]
-        self.DBMEE7DATABASE: str = data["DATABASE"]["DBMEE7DATABASE"]
+        self.DBDATABASE: str = data["DATABASE"]["DBDATABASE"]
 
         # Wavelink
         self.WLHOST: str = data["WAVELINK"]["WLHOST"]
