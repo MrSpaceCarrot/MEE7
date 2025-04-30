@@ -3,6 +3,9 @@ import logging
 from datetime import time
 from zoneinfo import ZoneInfo
 from typing import List
+import time
+import datetime
+import random
 
 import discord
 from discord import app_commands
@@ -92,7 +95,7 @@ class ExchangeView(discord.ui.View):
         relative_rate = currency_start_exchange_rate/currency_end_exchange_rate
         self.currency_end_amount_gained = self.amount * relative_rate
         embed: discord.Embed = discord.Embed(title=f"You are about to convert {self.currency_start.currency.prefix}{self.amount:.{self.currency_start.currency.decimal_places}f} {self.currency_start.currency.display_name} into {self.currency_end.currency.prefix}{self.currency_end_amount_gained:.{self.currency_end.currency.decimal_places}f} {self.currency_end.currency.display_name}", 
-                                                description=f"{self.currency_start.currency.prefix}1 {self.currency_start.currency.display_name} is currently equal to {self.currency_end.currency.prefix}{relative_rate:.2f} {self.currency_end.currency.display_name}\nAre you sure you want to do this?",
+                                                description=f"{self.currency_start.currency.prefix}1 {self.currency_start.currency.display_name} is currently equal to {self.currency_end.currency.prefix}{relative_rate:.4f} {self.currency_end.currency.display_name}\nAre you sure you want to do this?",
                                                 color=self.CONSTANTS.YELLOW)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         return embed
@@ -124,7 +127,7 @@ class ExchangeView(discord.ui.View):
 
         # Embed
         embed: discord.Embed = discord.Embed(title=f"Converted {self.currency_start.currency.prefix}{self.amount:.{self.currency_start.currency.decimal_places}f} {self.currency_start.currency.display_name} into {self.currency_end.currency.prefix}{self.currency_end_amount_gained:.{self.currency_end.currency.decimal_places}f} {self.currency_end.currency.display_name}", 
-                                                description=f"Your {self.currency_start.currency.display_name} balance is now {currency_start_new_balance:.{self.currency_start.currency.decimal_places}f}\nYour {self.currency_end.currency.display_name} balance is now {self.currency_end.currency.prefix}{currency_end_new_balance:.{self.currency_end.currency.decimal_places}f}",
+                                                description=f"Your {self.currency_start.currency.display_name} balance is now {self.currency_start.currency.prefix}{currency_start_new_balance:.{self.currency_start.currency.decimal_places}f}\nYour {self.currency_end.currency.display_name} balance is now {self.currency_end.currency.prefix}{currency_end_new_balance:.{self.currency_end.currency.decimal_places}f}",
                                                 color=self.CONSTANTS.GREEN)
         embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.edit_message(embed=embed, view=self)
@@ -215,9 +218,6 @@ class BlackjackView(discord.ui.View):
                 title = "Dealer Wins!"
                 color=self.CONSTANTS.RED
                 description = f"You lost {self.currency.prefix}{self.amount:.{self.currency.decimal_places}f} {self.currency.display_name}\nNew balance: {self.currency.prefix}{new_currency_balance:.{self.currency.decimal_places}f} {self.currency.display_name}"
-                if new_currency_balance < 1:
-                    description = description + "\nYou are now eligible for a bailout (/bailout)"
-                
                 database.operations.set_user_balance(self.user.id, self.currency.currency_id, new_currency_balance)
                 database.operations.set_user_balance(self.user.id, "aura", new_aura_balance)
 
@@ -293,6 +293,84 @@ class BlackjackView(discord.ui.View):
         embed = await new_view.refresh()
         await interaction.response.edit_message(embed=embed, view=new_view)
 
+# Job view
+class JobView(discord.ui.View):
+    def __init__(self, user: discord.User):
+        super().__init__(timeout=300)
+        self.user = user
+        self.CONSTANTS = Constants()
+
+    # Check that user that started the interaction can interact
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.id == self.user.id
+    
+    # Embed logic
+    async def refresh(self) -> discord.Embed:
+        # Get user job
+        user_job = database.operations.get_user_job(self.user.id)
+
+        if user_job:
+            embed: discord.Embed = discord.Embed(title=f"Job: {user_job.job.display_name}", color=self.CONSTANTS.GREEN)
+            embed.add_field(name="", value=f"Salary: {user_job.currency.prefix}{(user_job.job.min_pay/user_job.currency.value_multiplier):.{user_job.currency.decimal_places}f} - {user_job.currency.prefix}{(user_job.job.max_pay/user_job.currency.value_multiplier):.{user_job.currency.decimal_places}f} {user_job.currency.display_name} Per Shift\nWork Cooldown: {user_job.job.cooldown}s\nDo /work to work")
+        
+            # Disable get job button
+            for item in self.children:
+                if isinstance(item, discord.ui.Button) and item.label == "Get Job":
+                    item.disabled = True
+        else:
+            embed: discord.Embed = discord.Embed(title=f"You do not currently have a job", color=self.CONSTANTS.RED)
+
+            leave_job_cooldown = database.operations.check_cooldown(self.user.id, "leave_job_cooldown")
+            if leave_job_cooldown:
+                time_left = int((leave_job_cooldown.expiry_timestamp - datetime.datetime.now()).total_seconds())
+                if time_left > 1:
+                    embed.add_field(name="", value=f"You can apply for another job in {time_left}s")
+
+            # Disable quit job button
+            for item in self.children:
+                if isinstance(item, discord.ui.Button) and item.label == "Quit Job":
+                    item.disabled = True
+                if isinstance(item, discord.ui.Button) and item.label == "Get Job" and leave_job_cooldown and time_left > 1:
+                    item.disabled = True
+        embed.set_thumbnail(url=self.user.display_avatar.url)
+        embed.set_footer(text=self.CONSTANTS.FOOTER) 
+        return embed
+    
+    # Get Job Button
+    @discord.ui.button(label="Get Job", style=discord.ButtonStyle.primary)
+    async def get_job_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Disable buttons
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+
+        # Give user random job
+        database.operations.give_user_random_job(self.user.id)
+        new_view = JobView(self.user)
+        embed = await new_view.refresh()
+        await interaction.response.edit_message(embed=embed, view=new_view)
+
+    # Quit Job
+    @discord.ui.button(label="Quit Job", style=discord.ButtonStyle.danger)
+    async def quit_job_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Disable buttons
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+
+        # Remove user job
+        database.operations.remove_user_job(self.user.id)
+
+        # Remove previous work cooldown
+        database.operations.remove_cooldown(self.user.id, "work_cooldown")
+
+        # Create get job cooldown
+        database.operations.create_cooldown(self.user.id, 300, "leave_job_cooldown")
+
+        # Create view
+        new_view = JobView(self.user)
+        embed = await new_view.refresh()
+        await interaction.response.edit_message(embed=embed, view=new_view)
 
 # Main cog class
 class Economy(commands.Cog):
@@ -323,7 +401,7 @@ class Economy(commands.Cog):
         for currency in currencies:
             if currency.can_exchange:
                 new_exchange_rate = await self.generate_exchange_rate()
-                database.operations.set_exchange_rate(currency.currency_id, new_exchange_rate)
+                database.operations.set_exchange_rate(currency.currency_id, new_exchange_rate * currency.value_multiplier)
 
     # Balance Command
     @app_commands.command(name="balance", description="Shows how much currency you currently have")
@@ -350,8 +428,8 @@ class Economy(commands.Cog):
 
     # Exchange command
     @app_commands.command(name="exchange", description="Exchange currency to a different currency")
-    @app_commands.choices(currency_start=[Choice(name="Carrot Bucks", value="carrot_bucks"), Choice(name="Sheckles", value="sheckles")],
-                          currency_end=[Choice(name="Carrot Bucks", value="carrot_bucks"), Choice(name="Sheckles", value="sheckles")])
+    @app_commands.choices(currency_start=[Choice(name="Carrot Bucks", value="carrot_bucks"), Choice(name="Sheckles", value="sheckles"), Choice(name="Mansion Deeds", value="mansion_deeds")],
+                          currency_end=[Choice(name="Carrot Bucks", value="carrot_bucks"), Choice(name="Sheckles", value="sheckles"), Choice(name="Mansion Deeds", value="mansion_deeds")])
     @app_commands.describe(currency_start="The currency you are converting")
     @app_commands.describe(currency_end="The currency you are converting into")
     @app_commands.describe(amount="The amount of currency you are converting")
@@ -381,9 +459,11 @@ class Economy(commands.Cog):
     # Leaderboard command
     @app_commands.command(name="leaderboard", description="Shows which users have the most currency")
     @app_commands.choices(currency=[
+                                    Choice(name="Aura", value="aura"),
                                     Choice(name="Carrot Bucks", value="carrot_bucks"), 
-                                    Choice(name="Sheckles", value="sheckles"),
-                                    Choice(name="Aura", value="aura")])
+                                    Choice(name="Mansion Deeds", value="mansion_deeds"), 
+                                    Choice(name="Sheckles", value="sheckles")
+                                    ])
     @app_commands.describe(currency="The currency the leaderboard will be for")
     async def leaderboard(self, interaction: discord.Interaction, currency: str) -> None:
         # Log Command
@@ -442,7 +522,9 @@ class Economy(commands.Cog):
     @app_commands.describe(amount="Amount you want to bet")
     @app_commands.choices(currency=[
                                     Choice(name="Carrot Bucks", value="carrot_bucks"), 
-                                    Choice(name="Sheckles", value="sheckles")])
+                                    Choice(name="Sheckles", value="sheckles"),
+                                    Choice(name="Mansion Deeds", value="mansion_deeds"),
+                                    ])
     @app_commands.describe(currency="The currency you are betting")
     @app_commands.describe(amount="The amount of currency you are betting")
     async def blackjack(self, interaction: discord.Interaction, currency: str, amount: float) -> None:
@@ -465,7 +547,49 @@ class Economy(commands.Cog):
             view = BlackjackView(interaction.user, user_balance.currency, amount, deck, user_hand, dealer_hand, False)
             embed = await view.refresh()
             await interaction.response.send_message(embed=embed, view=view)
-        
+    
+    # Job Command
+    @app_commands.command(name="job", description="Manage your job")
+    async def job(self, interaction: discord.Interaction) -> None:
+        # Log Command
+        self.economy_logger.info(f"/job executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
+        # Send embed
+        view = JobView(interaction.user)
+        embed = await view.refresh()
+        await interaction.response.send_message(embed=embed, view=view)
+
+    # Work Command
+    @app_commands.command(name="work", description="Work")
+    async def work(self, interaction: discord.Interaction) -> None:
+        # Log Command
+        self.economy_logger.info(f"/work executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
+        # Check if user has job
+        user_job = database.operations.get_user_job(interaction.user.id)
+
+        if user_job:
+            work_cooldown = database.operations.check_cooldown(interaction.user.id, "work_cooldown")
+
+            if work_cooldown:
+                time_left = int((work_cooldown.expiry_timestamp - datetime.datetime.now()).total_seconds())
+                embed: discord.Embed = discord.Embed(title=f"You may work again in {time_left}s", color=self.CONSTANTS.RED)
+            else:
+                # Pay user
+                user_balances = database.operations.get_user_balances(interaction.user.id)
+                for balance in user_balances:
+                    if balance.currency_id == user_job.currency_id:
+                        pay_amount = random.randint(user_job.job.min_pay, user_job.job.max_pay) / user_job.currency.value_multiplier
+                        database.operations.set_user_balance(interaction.user.id, balance.currency_id, balance.balance + pay_amount)
+                    
+                # Create Embed
+                embed: discord.Embed = discord.Embed(title=f"You went to work and were paid {user_job.currency.prefix}{pay_amount} {user_job.currency.display_name}", description=f"You may work again in {user_job.job.cooldown}s", color=self.CONSTANTS.GREEN)
+                database.operations.create_cooldown(user_id=interaction.user.id, duration=user_job.job.cooldown, cooldown_type="work_cooldown")
+        else:
+            embed: discord.Embed = discord.Embed(title=f"You do not currently have a job", description=f"You can get one using /job", color=self.CONSTANTS.RED)
+
+        await interaction.response.send_message(embed=embed)
+
 
 # Setup function
 async def setup(client):

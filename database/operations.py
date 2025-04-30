@@ -1,9 +1,11 @@
 # Module Import
 import logging
+import datetime
 from typing import List
 from sqlalchemy import desc
-from database.models import SessionLocal, Server, ServerCategory, User, Currency, UserCurrency
+from database.models import SessionLocal, Server, ServerCategory, User, Currency, UserCurrency, UserJob, Job, Cooldown
 from sqlalchemy.orm import joinedload
+from sqlalchemy.sql.expression import func
 
 # Logging
 database_logger: logging.Logger = logging.getLogger("database")
@@ -67,7 +69,7 @@ def populate_user_currencies(user_id: int) -> None:
         for currency in currencies:
             user_currency = session.query(UserCurrency).filter(UserCurrency.user_id == user_id, UserCurrency.currency_id == currency.currency_id).first()
             if not user_currency:
-                created_user_currency = UserCurrency(user_id=user_id, currency_id=currency.currency_id)
+                created_user_currency = UserCurrency(user_id=user_id, currency_id=currency.currency_id, balance=currency.starting_value)
                 session.add(created_user_currency)
                 database_logger.debug(f"Populating currency '{currency.currency_id}' for user {user_id}'")
                 commit_needed = True
@@ -116,15 +118,81 @@ def get_currency(currency_id: str) -> Currency:
         return session.query(Currency).filter(Currency.currency_id == currency_id).first()
 
 # Get all currencies
-def get_currencies():
+def get_currencies() -> List[Currency]:
     with SessionLocal() as session:
         database_logger.debug(f"Got all currencies")
         return session.query(Currency).all()
 
 # Set exchange rate
-def set_exchange_rate(currency_id: str, exchange_rate: float):
+def set_exchange_rate(currency_id: str, exchange_rate: float) -> None:
     with SessionLocal() as session:
         currency = session.query(Currency).filter(Currency.currency_id == currency_id).first()
         currency.exchange_rate = exchange_rate
         database_logger.debug(f"Updating exchange rate for {currency.currency_id} to {exchange_rate}")
         session.commit()
+
+# Get user job
+def get_user_job(user_id: int) -> UserJob:
+    with SessionLocal() as session:
+        populate_user_currencies(user_id)
+        user_job = session.query(UserJob).options(joinedload(UserJob.job), joinedload(UserJob.currency)).filter(UserJob.user_id == user_id).first()
+        database_logger.debug(f"Got job for user {user_id}")
+        return user_job
+    
+# Give user job
+def give_user_random_job(user_id: int) -> None:
+    with SessionLocal() as session:
+        populate_user_currencies(user_id)
+        remove_user_job(user_id)
+        random_job = session.query(Job).order_by(func.rand()).limit(1).first()
+        random_currency = session.query(Currency).filter(Currency.can_work_for == True).order_by(func.rand()).limit(1).first()
+        user_job = UserJob(user_id=user_id, job_id=random_job.job_id, currency_id=random_currency.currency_id)
+        session.add(user_job)
+        database_logger.debug(f"Gave user {user_id} job: {random_job.job_id}")
+        session.commit()
+
+# Remove user job
+def remove_user_job(user_id: int) -> None:
+    with SessionLocal() as session:
+        populate_user_currencies(user_id)
+        user_job = session.query(UserJob).filter(UserJob.user_id == user_id).first()
+        if user_job:
+            session.delete(user_job)
+            database_logger.debug(f"Removed job from user {user_id}")
+            session.commit()
+
+# Create cooldown
+def create_cooldown(user_id: int, duration: int, cooldown_type: str) -> Cooldown:
+    with SessionLocal() as session:
+        timestamp = datetime.datetime.now() + datetime.timedelta(seconds=duration)
+        new_cooldown = Cooldown(user_id=user_id, expiry_timestamp=timestamp, cooldown_type=cooldown_type)
+        session.add(new_cooldown)
+        database_logger.debug(f"Created cooldown for user {user_id} for type {cooldown_type}")
+        session.commit()
+        session.refresh(new_cooldown)
+        return new_cooldown
+
+# Check cooldown
+def check_cooldown(user_id: int, cooldown_type: str) -> Cooldown:
+    with SessionLocal() as session:
+        cooldown = session.query(Cooldown).filter(Cooldown.user_id == user_id, Cooldown.cooldown_type == cooldown_type).first()
+        database_logger.debug(f"Getting cooldown for user {user_id} for type {cooldown_type}")
+        if cooldown:
+            # Check if cooldown is expired
+            if datetime.datetime.now() > cooldown.expiry_timestamp:
+                session.delete(cooldown)
+                session.commit()
+                return None
+            else:
+                return cooldown
+        else: 
+            return None
+        
+# Remove cooldown
+def remove_cooldown(user_id: int, cooldown_type: str) -> None:
+    with SessionLocal() as session:
+        cooldown = session.query(Cooldown).filter(Cooldown.user_id == user_id, Cooldown.cooldown_type == cooldown_type).first()
+        if cooldown:
+            session.delete(cooldown)
+            database_logger.debug(f"Removing cooldown for user {user_id} of type {cooldown_type}")
+            session.commit()

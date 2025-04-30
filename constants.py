@@ -54,14 +54,19 @@ class Constants():
             "Roblox",
             "Terraria",
             "Birdgut",
-            "Super friends party"
+            "Super friends party",
+            "Farm Merge Valley",
+            "Ronopoly",
         ]
         self.STATUSES_WATCHING: list[str] = [
             "Youtube",
-            "plane crashes"
+            "Plane crashes",
+            "Breaking Bad",
+            "One Piece"
         ]
         self.STATUSES_LISTENING: list[str] = [
             "the purges",
             "the screams",
-            "death metal"
+            "death metal",
+            "EPIC The Musical"
         ]
