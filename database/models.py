@@ -84,6 +84,9 @@ class Job(Base):
     min_pay = Column(Float, default=None, server_default=None)
     max_pay = Column(Float, default=None, server_default=None)
     cooldown = Column(Integer, default=None, server_default=None)
+    currency_override: Mapped[str] = Column(String(25), ForeignKey('currencies.currency_id'), nullable=True)
+
+    overridden_currency = relationship("Currency", foreign_keys=[currency_override])
 
 class UserJob(Base):
     __tablename__ = "user_jobs"

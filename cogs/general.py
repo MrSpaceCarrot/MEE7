@@ -21,14 +21,14 @@ class General(commands.Cog):
 
     # Message listener
     @commands.Cog.listener()
-    async def on_message(self, message: str) -> str | None:
+    async def on_message(self, message: discord.Message) -> str | None:
         # Get variables from message
         username: str = str(message.author)
         user_message: str = str(message.content)
         user_id: str = str(message.author.id)
 
         # Return if message was sent by the bot
-        if username == self.client.user:
+        if message.author.id in [762864416734969866, 1165935746167885834]:
             return
 
         # Get response from responses and send it

@@ -503,13 +503,13 @@ class Economy(commands.Cog):
         # Give bailout if user is completely broke
         needs_bailout = True
         for balance in user_balances:
-            if balance.balance > 1 and balance.currency.can_gamble == True:
+            if balance.balance > 1/balance.currency.value_multiplier and balance.currency.can_gamble == True:
                 needs_bailout = False
 
         # Send embed and update balance if needed
         if needs_bailout:
             database.operations.set_user_balance(interaction.user.id, "carrot_bucks", 20)
-            embed: discord.Embed = discord.Embed(title=f"¢20 Carrot Bucks Added To Balance", color=self.CONSTANTS.GREEN)
+            embed: discord.Embed = discord.Embed(title=f"Carrot Bucks Balance is now ¢20", color=self.CONSTANTS.GREEN)
         else:
             embed: discord.Embed = discord.Embed(title=f"You're not broke enough for a bailout", color=self.CONSTANTS.RED)
         embed.set_footer(text=self.CONSTANTS.FOOTER)

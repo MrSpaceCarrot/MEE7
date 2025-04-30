@@ -142,11 +142,19 @@ def get_user_job(user_id: int) -> UserJob:
 # Give user job
 def give_user_random_job(user_id: int) -> None:
     with SessionLocal() as session:
+        # Remove existing job and generate new one
         populate_user_currencies(user_id)
         remove_user_job(user_id)
         random_job = session.query(Job).order_by(func.rand()).limit(1).first()
-        random_currency = session.query(Currency).filter(Currency.can_work_for == True).order_by(func.rand()).limit(1).first()
-        user_job = UserJob(user_id=user_id, job_id=random_job.job_id, currency_id=random_currency.currency_id)
+
+        # If job specifies a currency to be paid in, use that
+        if random_job.currency_override:
+            user_job = UserJob(user_id=user_id, job_id=random_job.job_id, currency_id=random_job.overridden_currency.id)
+        else:
+            random_currency = session.query(Currency).filter(Currency.can_work_for == True).order_by(func.rand()).limit(1).first()
+            user_job = UserJob(user_id=user_id, job_id=random_job.job_id, currency_id=random_currency.currency_id)
+
+        # Commit changes
         session.add(user_job)
         database_logger.debug(f"Gave user {user_id} job: {random_job.job_id}")
         session.commit()
