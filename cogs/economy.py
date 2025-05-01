@@ -311,7 +311,7 @@ class JobView(discord.ui.View):
 
         if user_job:
             embed: discord.Embed = discord.Embed(title=f"Job: {user_job.job.display_name}", color=self.CONSTANTS.GREEN)
-            embed.add_field(name="", value=f"Salary: {user_job.currency.prefix}{(user_job.job.min_pay/user_job.currency.value_multiplier):.{user_job.currency.decimal_places}f} - {user_job.currency.prefix}{(user_job.job.max_pay/user_job.currency.value_multiplier):.{user_job.currency.decimal_places}f} {user_job.currency.display_name} Per Shift\nWork Cooldown: {user_job.job.cooldown}s\nDo /work to work")
+            embed.add_field(name="", value=f"Salary: {'' if user_job.currency.prefix == None else user_job.currency.prefix}{(user_job.job.min_pay/user_job.currency.value_multiplier):.{user_job.currency.decimal_places}f} - {'' if user_job.currency.prefix == None else user_job.currency.prefix}{(user_job.job.max_pay/user_job.currency.value_multiplier):.{user_job.currency.decimal_places}f} {user_job.currency.display_name} Per Shift\nWork Cooldown: {user_job.job.cooldown}s\nDo /work to work")
         
             # Disable get job button
             for item in self.children:
@@ -583,7 +583,7 @@ class Economy(commands.Cog):
                         database.operations.set_user_balance(interaction.user.id, balance.currency_id, balance.balance + pay_amount)
                     
                 # Create Embed
-                embed: discord.Embed = discord.Embed(title=f"You went to work and were paid {user_job.currency.prefix}{pay_amount} {user_job.currency.display_name}", description=f"You may work again in {user_job.job.cooldown}s", color=self.CONSTANTS.GREEN)
+                embed: discord.Embed = discord.Embed(title=f"You went to work and were paid {'' if user_job.currency.prefix == None else user_job.currency.prefix}{pay_amount:.{user_job.currency.decimal_places}f} {user_job.currency.display_name}", description=f"You may work again in {user_job.job.cooldown}s", color=self.CONSTANTS.GREEN)
                 database.operations.create_cooldown(user_id=interaction.user.id, duration=user_job.job.cooldown, cooldown_type="work_cooldown")
         else:
             embed: discord.Embed = discord.Embed(title=f"You do not currently have a job", description=f"You can get one using /job", color=self.CONSTANTS.RED)
