@@ -172,6 +172,7 @@ def remove_user_job(user_id: int) -> None:
 # Create cooldown
 def create_cooldown(user_id: int, duration: int, cooldown_type: str) -> Cooldown:
     with SessionLocal() as session:
+        remove_cooldown(user_id, cooldown_type)
         timestamp = datetime.datetime.now() + datetime.timedelta(seconds=duration)
         new_cooldown = Cooldown(user_id=user_id, expiry_timestamp=timestamp, cooldown_type=cooldown_type)
         session.add(new_cooldown)
