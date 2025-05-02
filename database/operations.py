@@ -172,7 +172,14 @@ def remove_user_job(user_id: int) -> None:
 # Create cooldown
 def create_cooldown(user_id: int, duration: int, cooldown_type: str) -> Cooldown:
     with SessionLocal() as session:
-        remove_cooldown(user_id, cooldown_type)
+        # Remove existing cooldown
+        existing_cooldown = session.query(Cooldown).filter(Cooldown.user_id == user_id, Cooldown.cooldown_type == cooldown_type).first()
+        if existing_cooldown:
+            session.delete(existing_cooldown)
+            database_logger.debug(f"Removing cooldown for user {user_id} of type {cooldown_type}")
+            session.commit()
+
+        # Create new cooldown
         timestamp = datetime.datetime.now() + datetime.timedelta(seconds=duration)
         new_cooldown = Cooldown(user_id=user_id, expiry_timestamp=timestamp, cooldown_type=cooldown_type)
         session.add(new_cooldown)
