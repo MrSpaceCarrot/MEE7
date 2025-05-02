@@ -173,12 +173,14 @@ def remove_user_job(user_id: int) -> None:
 def create_cooldown(user_id: int, duration: int, cooldown_type: str) -> Cooldown:
     with SessionLocal() as session:
         timestamp = datetime.datetime.now() + datetime.timedelta(seconds=duration)
-        new_cooldown = Cooldown(user_id=user_id, expiry_timestamp=timestamp, cooldown_type=cooldown_type)
-        session.merge(new_cooldown)
-        database_logger.debug(f"Created cooldown for user {user_id} for type {cooldown_type}")
+        cooldown = Cooldown(user_id=user_id, expiry_timestamp=timestamp, cooldown_type=cooldown_type)
+        
+        merged_cooldown = session.merge(cooldown)
         session.commit()
-        session.refresh(new_cooldown)
-        return new_cooldown
+        session.refresh(merged_cooldown)
+
+        database_logger.debug(f"Created cooldown for user {user_id} for type {cooldown_type}")
+        return merged_cooldown
 
 # Check cooldown
 def check_cooldown(user_id: int, cooldown_type: str) -> Cooldown:
