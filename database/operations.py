@@ -177,7 +177,6 @@ def create_cooldown(user_id: int, duration: int, cooldown_type: str) -> Cooldown
         if existing_cooldown:
             session.delete(existing_cooldown)
             database_logger.debug(f"Removing cooldown for user {user_id} of type {cooldown_type}")
-            session.commit()
 
         # Create new cooldown
         timestamp = datetime.datetime.now() + datetime.timedelta(seconds=duration)
