@@ -579,7 +579,7 @@ class Economy(commands.Cog):
                 user_balances = database.operations.get_user_balances(interaction.user.id)
                 for balance in user_balances:
                     if balance.currency_id == user_job.currency_id:
-                        pay_amount = random.randint(user_job.job.min_pay, user_job.job.max_pay) / user_job.currency.value_multiplier
+                        pay_amount = random.randint(int(user_job.job.min_pay), int(user_job.job.max_pay)) / user_job.currency.value_multiplier
                         database.operations.set_user_balance(interaction.user.id, balance.currency_id, balance.balance + pay_amount)
                     
                 # Create Embed
