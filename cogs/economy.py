@@ -535,7 +535,7 @@ class Economy(commands.Cog):
         user_balance = database.operations.get_user_balance(interaction.user.id, currency)
         
         # Check that user is able to make their bet
-        if user_balance.balance < amount or user_balance.balance < 0:
+        if user_balance.balance < amount or amount < 0:
             embed: discord.Embed = discord.Embed(title=f"Insufficent {user_balance.currency.display_name} balance (have {user_balance.currency.prefix}{user_balance.balance:.{user_balance.currency.decimal_places}f}, need {user_balance.currency.prefix}{amount:.{user_balance.currency.decimal_places}f})", color=self.CONSTANTS.RED)
             embed.set_footer(text=self.CONSTANTS.FOOTER)
             await interaction.response.send_message(embed=embed)
