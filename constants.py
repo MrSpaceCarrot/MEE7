@@ -17,6 +17,7 @@ class Constants():
 
         # Database
         self.DBHOST: str = data["DATABASE"]["DBHOST"]
+        self.DBPORT: str = data["DATABASE"]["DBPORT"]
         self.DBUSERNAME: str = data["DATABASE"]["DBUSERNAME"]
         self.DBPASSWORD: str = data["DATABASE"]["DBPASSWORD"]
         self.DBDATABASE: str = data["DATABASE"]["DBDATABASE"]
@@ -36,13 +37,16 @@ class Constants():
         self.COMMANDSLOGLEVEL: str = data["LOGGING"]["COMMANDSLOGLEVEL"]
         self.WAVELINKLOGLEVEL: str = data["LOGGING"]["WAVELINKLOGLEVEL"]
         self.DATABASELOGLEVEL: str = data["LOGGING"]["DATABASELOGLEVEL"]
+        self.ECONOMYLOGLEVEL: str = data["LOGGING"]["ECONOMYLOGLEVEL"]
 
         # Strings
         self.FOOTER: str = "Beep Boop"
 
         # Colors
+        self.BLUE: discord.Color = discord.Color.from_rgb(37, 150, 190)
         self.RED: discord.Color = discord.Color.from_rgb(252, 0, 0)
         self.GREEN: discord.Color = discord.Color.from_rgb(0, 252, 0)
+        self.YELLOW: discord.Color = discord.Color.from_rgb(252, 252, 0)
 
         # Bot statuses
         self.STATUSES_PLAYING: list[str] = [
@@ -50,14 +54,19 @@ class Constants():
             "Roblox",
             "Terraria",
             "Birdgut",
-            "Super friends party"
+            "Super friends party",
+            "Farm Merge Valley",
+            "Ronopoly",
         ]
         self.STATUSES_WATCHING: list[str] = [
             "Youtube",
-            "plane crashes"
+            "Plane crashes",
+            "Breaking Bad",
+            "One Piece"
         ]
         self.STATUSES_LISTENING: list[str] = [
             "the purges",
             "the screams",
-            "death metal"
+            "death metal",
+            "EPIC The Musical"
         ]

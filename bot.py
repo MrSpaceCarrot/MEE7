@@ -8,6 +8,7 @@ from discord.ext import commands
 
 import logs
 from constants import Constants
+import database.models
 
 
 # Main function
@@ -22,6 +23,7 @@ def run_bot():
     commands_logger: logging.Logger = logs.setup_logger(logging.getLogger('commands'), CONSTANTS.COMMANDSLOGLEVEL)
     wavelink_logger: logging.Logger = logs.setup_logger(logging.getLogger('wavelink'), CONSTANTS.WAVELINKLOGLEVEL)
     database_logger: logging.Logger = logs.setup_logger(logging.getLogger('database'), CONSTANTS.DATABASELOGLEVEL)
+    economy_logger: logging.Logger = logs.setup_logger(logging.getLogger('economy'), CONSTANTS.ECONOMYLOGLEVEL)
     
     # Pick random bot activity
     activity_type: int = random.randint(1, 3)
@@ -43,11 +45,15 @@ def run_bot():
             await client.load_extension("cogs.servers")
             await client.load_extension("cogs.music")
             await client.load_extension("cogs.fun")
+            await client.load_extension("cogs.economy")
             await client.tree.sync()
 
         # Handle exceptions
         except Exception as e:
             root_logger.error(e)
+
+        # Initialize DB
+        database.models.init_db()
 
         root_logger.info(f"{client.user} is now running!")
 
