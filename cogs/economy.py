@@ -625,7 +625,7 @@ class Economy(commands.Cog):
         if user_balance.balance < amount:
             title = f"Insufficent {currency.display_name} balance (have {currency.prefix}{user_balance.balance:.{currency.decimal_places}f}, need {currency.prefix}{amount:.{currency.decimal_places}f})"
             color = self.CONSTANTS.RED
-        elif user_balance.balance < 0:
+        elif amount < 0:
             title = "That got patched shitass"
             color = self.CONSTANTS.RED
         else:
