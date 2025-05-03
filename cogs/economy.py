@@ -263,6 +263,7 @@ class BlackjackView(discord.ui.View):
             embed.add_field(name=f"Dealer's Hand (?)", value=dealer_hand_formatted, inline=False)
         
         embed.set_thumbnail(url=self.user.display_avatar.url)
+        embed.set_footer(text=self.CONSTANTS.FOOTER)
         return embed
 
     # Hit button
@@ -441,20 +442,28 @@ class Economy(commands.Cog):
         currency_start = database.operations.get_user_balance(interaction.user.id, currency_start)
         currency_end = database.operations.get_user_balance(interaction.user.id, currency_end)
 
+        success = True
+        # Check if user is trying to convert negative numbers
+        if amount < 0:
+            title = f"That got patched shitass"
+            success = False
         # Check if user has enough to convert
         if currency_start.balance < amount:
-            embed: discord.Embed = discord.Embed(title=f"Insufficent {currency_start.currency.display_name} balance (have {currency_start.currency.prefix}{currency_start.balance:.{currency_start.currency.decimal_places}f}, need {currency_start.currency.prefix}{amount:.{currency_start.currency.decimal_places}f})", color=self.CONSTANTS.RED)
-            embed.set_footer(text=self.CONSTANTS.FOOTER)
-            await interaction.response.send_message(embed=embed)
+            title = f"Insufficent {currency_start.currency.display_name} balance (have {currency_start.currency.prefix}{currency_start.balance:.{currency_start.currency.decimal_places}f}, need {currency_start.currency.prefix}{amount:.{currency_start.currency.decimal_places}f})"
+            success = False
         # Check if user is trying to convert the same currency
         elif currency_start.currency.currency_id == currency_end.currency.currency_id:
-            embed: discord.Embed = discord.Embed(title=f"You cannot convert {currency_start.currency.display_name} into {currency_end.currency.display_name}", color=self.CONSTANTS.RED)
-            embed.set_footer(text=self.CONSTANTS.FOOTER)
-            await interaction.response.send_message(embed=embed)
-        else:
+            title = f"You cannot convert {currency_start.currency.display_name} into {currency_end.currency.display_name}"
+            success = False
+
+        if success == True:
             view = ExchangeView(interaction.user, currency_start, currency_end, amount)
             embed = await view.refresh()
             await interaction.response.send_message(embed=embed, view=view)
+        else:
+            embed: discord.Embed = discord.Embed(title=title, color=self.CONSTANTS.RED)
+            embed.set_footer(text=self.CONSTANTS.FOOTER)
+            await interaction.response.send_message(embed=embed)
 
     # Leaderboard command
     @app_commands.command(name="leaderboard", description="Shows which users have the most currency")
@@ -535,8 +544,12 @@ class Economy(commands.Cog):
         user_balance = database.operations.get_user_balance(interaction.user.id, currency)
         
         # Check that user is able to make their bet
-        if user_balance.balance < amount or amount < 0:
+        if user_balance.balance < amount:
             embed: discord.Embed = discord.Embed(title=f"Insufficent {user_balance.currency.display_name} balance (have {user_balance.currency.prefix}{user_balance.balance:.{user_balance.currency.decimal_places}f}, need {user_balance.currency.prefix}{amount:.{user_balance.currency.decimal_places}f})", color=self.CONSTANTS.RED)
+            embed.set_footer(text=self.CONSTANTS.FOOTER)
+            await interaction.response.send_message(embed=embed)
+        elif amount < 0:
+            embed: discord.Embed = discord.Embed(title=f"That got patched shitass", color=self.CONSTANTS.RED)
             embed.set_footer(text=self.CONSTANTS.FOOTER)
             await interaction.response.send_message(embed=embed)
         else:
@@ -588,6 +601,50 @@ class Economy(commands.Cog):
         else:
             embed: discord.Embed = discord.Embed(title=f"You do not currently have a job", description=f"You can get one using /job", color=self.CONSTANTS.RED)
 
+        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        await interaction.response.send_message(embed=embed)
+
+    # Gift Command
+    @app_commands.command(name="gift", description="Gift another user currency")
+    @app_commands.describe(target_user="User you are gifting")
+    @app_commands.describe(currency="Currency you are gifting")
+    @app_commands.describe(amount="The amount of currency being gifted")
+    @app_commands.choices(currency=[
+                                    Choice(name="Carrot Bucks", value="carrot_bucks"), 
+                                    Choice(name="Sheckles", value="sheckles"),
+                                    Choice(name="Mansion Deeds", value="mansion_deeds"),
+                                    ])
+    async def gift(self, interaction: discord.Interaction, target_user: discord.User, currency: str, amount: float) -> None:
+        # Log Command
+        self.economy_logger.info(f"/gift executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
+        # Check if user has enough currency
+        description = None
+        currency = database.operations.get_currency(currency)
+        user_balance = database.operations.get_user_balance(interaction.user.id, currency.currency_id)
+        if user_balance.balance < amount:
+            title = f"Insufficent {currency.display_name} balance (have {currency.prefix}{user_balance.balance:.{currency.decimal_places}f}, need {currency.prefix}{amount:.{currency.decimal_places}f})"
+            color = self.CONSTANTS.RED
+        elif user_balance.balance < 0:
+            title = "That got patched shitass"
+            color = self.CONSTANTS.RED
+        else:
+            # Update balances
+            target_user_balance = database.operations.get_user_balance(target_user.id, currency.currency_id)
+
+            new_target_user_balance = target_user_balance.balance + amount
+            new_user_balance = user_balance.balance - amount
+
+            database.operations.set_user_balance(target_user.id, currency.currency_id, new_target_user_balance)
+            database.operations.set_user_balance(interaction.user.id, currency.currency_id, new_user_balance)
+
+            title = f"Successfully gifted {currency.prefix}{amount:.{currency.decimal_places}f} {currency.display_name} to {target_user.display_name}"
+            description = f"Your {currency.display_name} balance is now {currency.prefix}{new_user_balance:.{currency.decimal_places}f}\n<@{target_user.id}>'s {currency.display_name} balance is now {currency.prefix}{new_target_user_balance:.{currency.decimal_places}f}"
+            color = self.CONSTANTS.GREEN
+
+        # Create and send embed
+        embed: discord.Embed = discord.Embed(title=title, description=description, color=color)
+        embed.set_footer(text=self.CONSTANTS.FOOTER)
         await interaction.response.send_message(embed=embed)
 
 

@@ -44,7 +44,7 @@ class Fun(commands.Cog):
     # Slander command
     @app_commands.command(name="slander", description="Sends a randomly generated slander to a user")
     @app_commands.describe(user="User that you want MEE7 to slander")
-    async def slander(self, interaction: discord.Interaction, user: str) -> None:
+    async def slander(self, interaction: discord.Interaction, user: discord.User) -> None:
         # Log Command
         self.commands_logger.info(f"/slander executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
@@ -54,12 +54,12 @@ class Fun(commands.Cog):
         # Get insult from evilinsultapi and send
         request: requests.Response = requests.get("https://evilinsult.com/generate_insult.php?lang=en&type=json")
         insult = json.loads(request.text)["insult"]
-        message: str = user + ", " + insult
+        message: str = f"{user.mention}, {insult}"
         await interaction.followup.send(message)
 
     # Shu Todoroki command
     @app_commands.command(name="shu-todoroki", description="Shu Todoroki")
-    async def insult(self, interaction: discord.Interaction) -> None:
+    async def shu_todoroki(self, interaction: discord.Interaction) -> None:
         # Log Command
         self.commands_logger.info(f"/shu-todoroki executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
