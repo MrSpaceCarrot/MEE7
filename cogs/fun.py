@@ -9,7 +9,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from constants import Constants
+from config import settings
 
 
 # Main cog class
@@ -18,7 +18,6 @@ class Fun(commands.Cog):
     # Class init
     def __init__(self, client):
         self.client = client
-        self.CONSTANTS = Constants()
         self.commands_logger: logging.Logger = logging.getLogger("commands")
 
     # Catpic command
@@ -31,13 +30,11 @@ class Fun(commands.Cog):
         await interaction.response.defer()
 
         # Get image from catapi
-        api_key: str = self.CONSTANTS.CATAPIKEY
-        request_url: str = "https://api.thecatapi.com/v1/images/search?&api_key=" + api_key
-        request: requests.Response = requests.get(request_url)
-        final_url = json.loads(request.text)[0]["url"]
+        response = requests.get(f"https://api.thecatapi.com/v1/images/search?&api_key={settings.CAT_API_KEY}")
+        final_url = json.loads(response.text)[0]["url"]
 
         # Send embed
-        embed = discord.Embed(title="", color=self.CONSTANTS.BLUE)
+        embed = discord.Embed(title="", color=settings.BLUE)
         embed.set_image(url=final_url)
         await interaction.followup.send(embed=embed)
 
@@ -63,13 +60,10 @@ class Fun(commands.Cog):
         # Log Command
         self.commands_logger.info(f"/shu-todoroki executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
-        # Defer interaction
-        await interaction.response.defer()
-
         # Get list of images, send random one
         images: list[str] = os.listdir("./shu-todoroki")
         image: int = random.randint(0, (len(images) - 1))
-        await interaction.followup.send(file=discord.File(f'./shu-todoroki/{image}.png'))
+        await interaction.response.send_message(file=discord.File(f'./shu-todoroki/{image}.png'))
         
 
 # Setup function

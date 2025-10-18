@@ -1,37 +1,30 @@
 # Module imports
 import random
 import logging
-import logging.handlers
 
 import discord
 from discord.ext import commands
 
-import logs
-from constants import Constants
-import database.models
+import services.logs as logs
+from config import settings
 
 
 # Main function
 def run_bot():
-    # Load constants and token
-    CONSTANTS = Constants()
-    TOKEN: str = CONSTANTS.TOKEN
-
     # Setup logging
-    root_logger: logging.Logger = logs.setup_logger(logging.getLogger(''), CONSTANTS.ROOTLOGLEVEL)
-    discord_logger: logging.Logger = logs.setup_logger(logging.getLogger('discord'), CONSTANTS.DISCORDLOGLEVEL)
-    commands_logger: logging.Logger = logs.setup_logger(logging.getLogger('commands'), CONSTANTS.COMMANDSLOGLEVEL)
-    wavelink_logger: logging.Logger = logs.setup_logger(logging.getLogger('wavelink'), CONSTANTS.WAVELINKLOGLEVEL)
-    database_logger: logging.Logger = logs.setup_logger(logging.getLogger('database'), CONSTANTS.DATABASELOGLEVEL)
-    economy_logger: logging.Logger = logs.setup_logger(logging.getLogger('economy'), CONSTANTS.ECONOMYLOGLEVEL)
-    
+    root_logger: logging.Logger = logs.setup_logger(logging.getLogger(''), settings.LOG_LEVEL_ROOT)
+    discord_logger: logging.Logger = logs.setup_logger(logging.getLogger('discord'), settings.LOG_LEVEL_DISCORD)
+    commands_logger: logging.Logger = logs.setup_logger(logging.getLogger('commands'), settings.LOG_LEVEL_COMMANDS)
+    wavelink_logger: logging.Logger = logs.setup_logger(logging.getLogger('wavelink'), settings.LOG_LEVEL_WAVELINK)
+    economy_logger: logging.Logger = logs.setup_logger(logging.getLogger('economy'), settings.LOG_LEVEL_ECONOMY)
+
     # Pick random bot activity
     activity_type: int = random.randint(1, 3)
     activity: discord.Activity = None
     match activity_type:
-        case 1: activity = activity=discord.Activity(type=discord.ActivityType.playing, name=random.choice(CONSTANTS.STATUSES_PLAYING))
-        case 2: activity = activity=discord.Activity(type=discord.ActivityType.watching, name=random.choice(CONSTANTS.STATUSES_WATCHING))
-        case 3: activity = activity=discord.Activity(type=discord.ActivityType.listening, name=random.choice(CONSTANTS.STATUSES_LISTENING))
+        case 1: activity = activity=discord.Activity(type=discord.ActivityType.playing, name=random.choice(settings.STATUSES_PLAYING))
+        case 2: activity = activity=discord.Activity(type=discord.ActivityType.watching, name=random.choice(settings.STATUSES_WATCHING))
+        case 3: activity = activity=discord.Activity(type=discord.ActivityType.listening, name=random.choice(settings.STATUSES_LISTENING))
 
     # Create client and set intents
     client = commands.Bot(command_prefix="$", intents=discord.Intents.all(), activity=activity)
@@ -52,10 +45,7 @@ def run_bot():
         except Exception as e:
             root_logger.error(e)
 
-        # Initialize DB
-        database.models.init_db()
-
         root_logger.info(f"{client.user} is now running!")
 
 
-    client.run(TOKEN, log_handler=None)
+    client.run(settings.BOT_TOKEN, log_handler=None)

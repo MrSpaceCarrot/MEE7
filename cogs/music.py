@@ -4,10 +4,9 @@ import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
-
 import wavelink
 
-from constants import Constants
+from config import settings
 
 
 # Custom wavelink player class
@@ -23,7 +22,6 @@ class Music(commands.Cog):
     # Class init
     def __init__(self, client):
         self.client = client
-        self.CONSTANTS = Constants()
 
         self.commands_logger: logging.Logger = logging.getLogger("commands")
         self.wavelink_logger: logging.Logger = logging.getLogger("wavelink")
@@ -33,7 +31,7 @@ class Music(commands.Cog):
     # Wavelink connect node function
     async def connect_nodes(self) -> None:
         await self.client.wait_until_ready()
-        nodes = [wavelink.Node(uri=f"{self.CONSTANTS.WLHOST}:{self.CONSTANTS.WLPORT}", password=self.CONSTANTS.WLPASSWORD)]
+        nodes = [wavelink.Node(uri=f"{settings.WAVELINK_HOST}:{settings.WAVELINK_PORT}", password=settings.WAVELINK_PASSWORD)]
         await wavelink.Pool.connect(nodes=nodes, client=self.client, cache_capacity=None)
 
     # Wavelink on node ready function
@@ -97,22 +95,22 @@ class Music(commands.Cog):
             if not vc:
                 await interaction.user.voice.channel.connect(cls=CustomPlayer())
                 message = "✅ Connected to the voice channel"
-                color = self.CONSTANTS.GREEN
+                color = settings.GREEN
                 self.commands_logger.debug("Bot successfully connected to voice channel")
             # If the bot is already in the vc, set embed as such
             else:
                 message = "❌ Already connected to a voice channel"
-                color = self.CONSTANTS.RED
+                color = settings.RED
                 self.commands_logger.debug("Bot is already connected to voice channel")
         # If error, the user is not in a voice channel
         except AttributeError:
             message = "❌ Please join a voice channel first"
-            color = self.CONSTANTS.RED
+            color = settings.RED
             self.commands_logger.debug("Bot cannot connect to voice channel, user not in voice channel")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=message, color=color)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Disconnect command
@@ -130,18 +128,18 @@ class Music(commands.Cog):
         if vc:
             await vc.disconnect()
             message = "✅ Disconnected from the voice channel"
-            color = self.CONSTANTS.GREEN
+            color = settings.GREEN
             self.commands_logger.debug("Bot successfully disconnected from voice channel")
 
         # If bot not in vc, show error
         else:
             message = "❌ Not connected to a voice channel"
-            color = self.CONSTANTS.RED
+            color = settings.RED
             self.commands_logger.debug("Bot cannot disconnect from voice channel, was not initially in voice channel")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=message, color=color)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Play command
@@ -192,13 +190,13 @@ class Music(commands.Cog):
                 self.commands_logger.debug("Song successfully played")
 
             description = track.title
-            color = self.CONSTANTS.GREEN
+            color = settings.GREEN
             url = track.uri
             thumbnail_url = track.artwork
                 
         # Handle user not being in vc
         except Exception as e:
-            color = self.CONSTANTS.RED
+            color = settings.RED
             if results_found == False:
                 title = "❌ No song with that name could be found"
                 self.commands_logger.debug("Bot cannot connect to find song, no results")
@@ -209,7 +207,7 @@ class Music(commands.Cog):
         # Send embed
         embed: discord.Embed = discord.Embed(title=title, description=description, color=color, url=url)
         embed.set_thumbnail(url=thumbnail_url)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Skip command
@@ -229,7 +227,7 @@ class Music(commands.Cog):
             # Send error if nothing is playing
             if not vc.playing:
                 message = "❌ Nothing is playing"
-                color = self.CONSTANTS.RED
+                color = settings.RED
                 self.commands_logger.debug("Bot cannot skip song, nothing is playing")
 
             else:
@@ -238,7 +236,7 @@ class Music(commands.Cog):
                 self.commands_logger.debug("Song successfully skipped")
                 
                 message = "⏭️ Song Skipped"
-                color = self.CONSTANTS.GREEN
+                color = settings.GREEN
 
                 if vc.playing:
                     description = f"Now Playing: [{vc.current.title}]({vc.current.uri})"
@@ -250,12 +248,12 @@ class Music(commands.Cog):
         # Error if bot is not connected to voice channel
         else:
             message = "❌ Bot is not connected to voice channel"
-            color = self.CONSTANTS.RED
+            color = settings.RED
             self.commands_logger.debug("Bot cannot skip song, bot not in voice channel")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=message, description=description, color=color)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Pause command
@@ -275,24 +273,24 @@ class Music(commands.Cog):
             if vc.playing and not vc.paused:
                 await vc.pause(True)
                 message = "⏸️ Playback paused"
-                color = self.CONSTANTS.GREEN
+                color = settings.GREEN
                 self.commands_logger.debug("Playback successfully paused")
 
             # Error if nothing is already playing
             else:
                 message = "❌ Nothing is playing"
-                color = self.CONSTANTS.RED
+                color = settings.RED
                 self.commands_logger.debug("Bot cannot pause playback, nothing is playing")
 
         # Error if bot is not connected to a voice channel
         else:
             message = "❌ Bot is not connected to voice channel"
-            color = self.CONSTANTS.RED
+            color = settings.RED
             self.commands_logger.debug("Bot cannot pause playback, bot not in voice channel")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=message, color=color)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Resume command
@@ -312,24 +310,24 @@ class Music(commands.Cog):
             if vc.paused:
                 await vc.pause(False)
                 message = "▶️ Playback resumed"
-                color = self.CONSTANTS.GREEN
+                color = settings.GREEN
                 self.commands_logger.debug("Playback successfully resumed")
 
             # Error if something is already playing
             else:
                 message = "❌ Nothing is playing"
-                color = self.CONSTANTS.RED
+                color = settings.RED
                 self.commands_logger.debug("Bot cannot resume playback, nothing is playing")
 
         # Error if bot is not connected to a voice channel
         else:
             message = "❌ Bot is not connected to voice channel"
-            color = self.CONSTANTS.RED
+            color = settings.RED
             self.commands_logger.debug("Bot cannot resume playback, bot not in voice channel")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=message, color=color)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Queue command
@@ -354,7 +352,7 @@ class Music(commands.Cog):
 
             # Create embed
             embed: discord.Embed = discord.Embed(title="Music Queue", color=self.CONSTANTS.BLUE)
-            embed.set_footer(text=self.CONSTANTS.FOOTER)
+            embed.set_footer(text=settings.FOOTER)
 
             # Sets embed element to be currently playing song, if any
             if not vc.current:
@@ -378,7 +376,7 @@ class Music(commands.Cog):
 
         # Handles exception if user is not in a voice channel
         except Exception as e:
-            embed: discord.Embed = discord.Embed(title="❌ Please join a voice channel first", color=self.CONSTANTS.RED)
+            embed: discord.Embed = discord.Embed(title="❌ Please join a voice channel first", color=settings.RED)
             self.commands_logger.debug("Bot cannot return queue, bot not in voice channel")
             self.commands_logger.error(e)
 
@@ -399,8 +397,8 @@ class Music(commands.Cog):
             self.wavelink_logger.error(error)
 
         # Create embed
-        embed: discord.Embed = discord.Embed(title=message, color=self.CONSTANTS.RED)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed: discord.Embed = discord.Embed(title=message, color=settings.RED)
+        embed.set_footer(text=settings.FOOTER)
 
         # Send embed
         await interaction.response.send_message(embed=embed)

@@ -1,8 +1,5 @@
 # Module Imports
 import random
-import database
-import database.operations
-
 # Handle response function
 def handle_response(message: str, userid: str) -> str:
     # Lower mesage
@@ -23,9 +20,7 @@ def handle_response(message: str, userid: str) -> str:
 # Handle banned words function
 def handle_banned_words(message: str, userid: str) -> str:
     # List of all banned words
-    banned_words = [
-        "https://tenor.com/view/fnf-fridaynightfunkin-fnf-mod-fnf-players-be-like-furries-be-like-gif-25259051"
-    ]
+    banned_words = []
 
     # If message contains any of these words, delete message and send message from bot
     if message in banned_words:
@@ -34,7 +29,9 @@ def handle_banned_words(message: str, userid: str) -> str:
 
 # Handle custom response function
 def handle_custom_response(message: str, userid: str) -> str:
-    # If/else of custom responses from bot
+    # RE-ADD RANDOM AURA GAIN / LOSS
+    # TO DO
+    """
     random_number = random.randint(1, 100)
     if random_number >= 80:
         database.operations.populate_user_currencies(user_id=userid)
@@ -44,6 +41,7 @@ def handle_custom_response(message: str, userid: str) -> str:
         database.operations.populate_user_currencies(user_id=userid)
         user_aura_balance = database.operations.get_user_balance(userid, "aura")
         database.operations.set_user_balance(userid, "aura", user_aura_balance.balance - 10)
+    """
 
     if message == "wafflehipponuts":
         return "Congrats! You found this very obscure response!"
