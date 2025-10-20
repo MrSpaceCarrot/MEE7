@@ -35,25 +35,25 @@ class Servers(commands.Cog):
         success: bool = True
         while success:
             # Get server categories from api
-            categories_response = api_get(f"/servers/categories", interaction.user.id)
-            categories_content = categories_response.json()
+            categories_response = await api_get(f"/servers/categories", interaction.user.id)
+            categories_content = categories_response["content"]
 
             # If categories were not successfully gotten
-            if not categories_response.ok:
+            if not categories_response["ok"]:
                 if categories_content["detail"]:
                     description = categories_content["detail"]
-                    self.commands_logger.debug(f"Cannot get server list, {categories_response.status_code}")
+                    self.commands_logger.debug(f"Cannot get server list, {categories_response['status']}")
                 success = False
 
             # Get servers from api
-            servers_response = api_get(f"/servers?order_by=id", interaction.user.id)
-            servers_content = servers_response.json()
+            servers_response = await api_get(f"/servers?order_by=id", interaction.user.id)
+            servers_content = servers_response["content"]
 
             # If servers were not successfully gotten
-            if not servers_response.ok:
+            if not servers_response["ok"]:
                 if servers_content["detail"]:
                     description = categories_content["detail"]
-                    self.commands_logger.debug(f"Cannot get servers, {servers_response.status_code}")
+                    self.commands_logger.debug(f"Cannot get servers, {servers_response['status']}")
                 success = False
 
             # If all information was successfully gotten, format embed
@@ -88,11 +88,11 @@ class Servers(commands.Cog):
         description: str = ""
         
         # Attempt to start server through api
-        response = api_post(f"/servers/start/{server.lower()}", interaction.user.id)
-        content = response.json()
+        response = await api_post(f"/servers/start/{server.lower()}", interaction.user.id)
+        content = response["content"]
 
-        if response.ok:
-            title = f"✅ {response.json()}"
+        if response["ok"]:
+            title = f"✅ {response['content']}"
             embed_color = settings.GREEN
             self.commands_logger.debug("Successfully starting server")
         else:
@@ -100,7 +100,7 @@ class Servers(commands.Cog):
             embed_color: discord.Color = settings.RED
             if content["detail"]:
                 description = content["detail"]
-            self.commands_logger.debug(f"Cannot start server, {response.status_code}")
+            self.commands_logger.debug(f"Cannot start server, {response['status']}")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=title, description=description, color=embed_color)
@@ -121,10 +121,10 @@ class Servers(commands.Cog):
         description: str = ""
 
         # Get server from api
-        response = api_get(f"/servers/{server.lower()}", interaction.user.id)
-        content = response.json()
+        response = await api_get(f"/servers/{server.lower()}", interaction.user.id)
+        content = response['content']
 
-        if response.ok:
+        if response["ok"]:
             embed: discord.Embed = discord.Embed(title=f"{content['emoji']} {content['display_name']}", description=content['description'], color=settings.BLUE)
             embed.add_field(name="**💻 Version**", value=f"{content['version']} {content['modloader']}", inline=False)
             embed.add_field(name="**✉️ How To Join**", value=content['domain'], inline=False)
@@ -150,11 +150,11 @@ class Servers(commands.Cog):
             if content["detail"]:
                 description = content["detail"]
 
-            if response.status_code == 404:
+            if response["status"] == 404:
                 description = description + "\nRun /server-list to get a list of valid servers"
                 
             embed: discord.Embed = discord.Embed(title=f"❌ Error getting server '{server}'", description=description, color=settings.RED)
-            self.commands_logger.debug(f"Cannot get server, {response.status_code}")
+            self.commands_logger.debug(f"Cannot get server, {response['status']}")
 
         # Send embed
         embed.set_footer(text=settings.FOOTER)

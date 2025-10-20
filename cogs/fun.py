@@ -1,7 +1,5 @@
 # Module Imports
 import os
-import requests
-import json
 import random
 import logging
 
@@ -10,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import settings
+from services.api import get_request
 
 
 # Main cog class
@@ -30,8 +29,8 @@ class Fun(commands.Cog):
         await interaction.response.defer()
 
         # Get image from catapi
-        response = requests.get(f"https://api.thecatapi.com/v1/images/search?&api_key={settings.CAT_API_KEY}")
-        final_url = json.loads(response.text)[0]["url"]
+        response = await get_request(f"https://api.thecatapi.com/v1/images/search?&api_key={settings.CAT_API_KEY}")
+        final_url = response["content"][0]["url"]
 
         # Send embed
         embed = discord.Embed(title="", color=settings.BLUE)
@@ -49,8 +48,8 @@ class Fun(commands.Cog):
         await interaction.response.defer()
 
         # Get insult from evilinsultapi and send
-        request: requests.Response = requests.get("https://evilinsult.com/generate_insult.php?lang=en&type=json")
-        insult = json.loads(request.text)["insult"]
+        response = await get_request("https://evilinsult.com/generate_insult.php?lang=en&type=json")
+        insult = response["content"]["insult"]
         message: str = f"{user.mention}, {insult}"
         await interaction.followup.send(message)
 

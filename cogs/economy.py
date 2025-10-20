@@ -28,7 +28,7 @@ class ExchangeView(discord.ui.View):
         # Set embed fields
         # If code was provided, exchange has not been confirmed yet
         if "code" in self.exchange_dict:
-            message = self.exchange_dict["return_text"].split(". ")
+            message = self.exchange_dict["response_text"]
             title = message[0]
             description = f"{message[1]}\n{message[2]}"
             color = settings.YELLOW
@@ -36,12 +36,12 @@ class ExchangeView(discord.ui.View):
         # If action was given, exchange has concluded
         else:
             if self.exchange_dict["action"] == "Confirmation":
-                message = self.exchange_dict["return_text"].split(". ")
+                message = self.exchange_dict["response_text"]
                 title = message[0]
                 description = f"{message[1]}\n{message[2]}"
                 color = settings.GREEN
             else:
-                title = self.exchange_dict["return_text"]
+                title = self.exchange_dict["response_text"][0]
                 description = ""
                 color = settings.RED
 
@@ -61,10 +61,10 @@ class ExchangeView(discord.ui.View):
         # Send confirm request
         data = {"code": self.exchange_dict['code'],
                 "action": "Confirm"}
-        response = api_post(f"/economy/currencies/exchange", interaction.user.id, data)
+        response = await api_post(f"/economy/currencies/exchange/continue", interaction.user.id, data)
 
         # Send new embed
-        new_view = ExchangeView(self.user, response.json())
+        new_view = ExchangeView(self.user, response["content"])
         embed = await new_view.refresh()
         await interaction.response.edit_message(embed=embed, view=new_view)
     
@@ -74,10 +74,10 @@ class ExchangeView(discord.ui.View):
         # Send confirm request
         data = {"code": self.exchange_dict['code'],
                 "action": "Cancel"}
-        response = api_post(f"/economy/currencies/exchange", interaction.user.id, data)
+        response = await api_post(f"/economy/currencies/exchange/continue", interaction.user.id, data)
 
         # Send new embed
-        new_view = ExchangeView(self.user, response.json())
+        new_view = ExchangeView(self.user, response["content"])
         embed = await new_view.refresh()
         await interaction.response.edit_message(embed=embed, view=new_view)
 
@@ -97,19 +97,19 @@ class BlackjackView(discord.ui.View):
     # Game logic and update embed
     async def refresh(self) -> discord.Embed:
         # Set embed fields
-        if self.game_dict["result"] != None:
+        if self.game_dict["game"]["result"] != None:
             description = ""
-            result_text = self.game_dict["result_text"].split(". ")
-            for item in result_text:
+            response_text = self.game_dict["response_text"]
+            for item in response_text:
                 description = description + f"{item}\n"
             
-            if self.game_dict["result"] == "Win":
+            if self.game_dict["game"]["result"] == "Win":
                 title = "You Win!"
                 color = settings.GREEN
-            elif self.game_dict["result"] == "Lose":
+            elif self.game_dict["game"]["result"] == "Lose":
                 title = "Dealer Wins!"
                 color = settings.RED
-            elif self.game_dict["result"] == "Tie":
+            elif self.game_dict["game"]["result"] == "Tie":
                 title = "You Tied!"
                 color = settings.YELLOW
 
@@ -119,8 +119,8 @@ class BlackjackView(discord.ui.View):
                     item.disabled = True
         else:
             title = "Blackjack"
-            currency = self.game_dict["currency"]
-            description = f"Bet: {currency['prefix']}{self.game_dict['bet']:.{currency['decimal_places']}f} {currency['display_name']}"
+            currency = self.game_dict["game"]["currency"]
+            description = f"Bet: {currency['prefix']}{self.game_dict['game']['bet']:.{currency['decimal_places']}f} {currency['display_name']}"
             color = settings.BLUE
 
         # Create embed
@@ -128,17 +128,17 @@ class BlackjackView(discord.ui.View):
 
         # User hand
         user_hand = ""
-        for card in self.game_dict['user_hand']:
+        for card in self.game_dict["game"]['user_hand']:
             user_hand = user_hand + f"{card} "
-        embed.add_field(name=f"Your Hand ({self.game_dict['user_hand_value']})", value=user_hand, inline=False)
+        embed.add_field(name=f"Your Hand ({self.game_dict['game']['user_hand_value']})", value=user_hand, inline=False)
         
         # Dealer hand
         dealer_hand = ""
-        for card in self.game_dict['dealer_hand']:
+        for card in self.game_dict["game"]['dealer_hand']:
             dealer_hand = dealer_hand + f"{card} "
         
-        if self.game_dict["result"] != None:
-            embed.add_field(name=f"Dealer's Hand ({self.game_dict['dealer_hand_value']})", value=dealer_hand, inline=False)
+        if self.game_dict["game"]["result"] != None:
+            embed.add_field(name=f"Dealer's Hand ({self.game_dict['game']['dealer_hand_value']})", value=dealer_hand, inline=False)
         else:
             embed.add_field(name=f"Dealer's Hand (?)", value=dealer_hand, inline=False)
 
@@ -150,12 +150,12 @@ class BlackjackView(discord.ui.View):
     @discord.ui.button(label="Hit", style=discord.ButtonStyle.primary)
     async def hit_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Send hit request
-        data = {"code": self.game_dict['code'],
+        data = {"code": self.game_dict["game"]["code"],
                 "action": "Hit"}
-        response = api_post(f"/economy/gambling/blackjack", interaction.user.id, data)
+        response = await api_post(f"/economy/gambling/blackjack", interaction.user.id, data)
 
         # Send new embed
-        new_view = BlackjackView(self.user, response.json())
+        new_view = BlackjackView(self.user, response["content"])
         embed = await new_view.refresh()
         await interaction.response.edit_message(embed=embed, view=new_view)
 
@@ -163,12 +163,12 @@ class BlackjackView(discord.ui.View):
     @discord.ui.button(label="Stand", style=discord.ButtonStyle.primary)
     async def stand_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Send hit request
-        data = {"code": self.game_dict['code'],
+        data = {"code": self.game_dict["game"]["code"],
                 "action": "Stand"}
-        response = api_post(f"/economy/gambling/blackjack", interaction.user.id, data)
+        response = await api_post(f"/economy/gambling/blackjack", interaction.user.id, data)
 
         # Send new embed
-        new_view = BlackjackView(self.user, response.json())
+        new_view = BlackjackView(self.user, response["content"])
         embed = await new_view.refresh()
         await interaction.response.edit_message(embed=embed, view=new_view)
 
@@ -246,10 +246,10 @@ class JobView(discord.ui.View):
                 item.disabled = True
 
         # Send apply for job request to api
-        response = api_post(f"/economy/jobs/apply", interaction.user.id)
+        response = await api_post(f"/economy/jobs/apply", interaction.user.id)
 
         # Send new embed
-        new_view = JobView(self.user, response.json())
+        new_view = JobView(self.user, response["content"])
         embed = await new_view.refresh()
         await interaction.response.edit_message(embed=embed, view=new_view)
 
@@ -262,10 +262,10 @@ class JobView(discord.ui.View):
                 item.disabled = True
 
         # Send quit job request to api
-        response = api_post(f"/economy/jobs/quit", interaction.user.id)
+        response = await api_post(f"/economy/jobs/quit", interaction.user.id)
 
         # Send new embed
-        new_view = JobView(self.user, response.json(), True)
+        new_view = JobView(self.user, response["content"], True)
         embed = await new_view.refresh()
         await interaction.response.edit_message(embed=embed, view=new_view)
 
@@ -288,10 +288,10 @@ class Economy(commands.Cog):
         await interaction.response.defer()
 
         # Get balances from api
-        response = api_get(f"/economy/balances/me", interaction.user.id)
-        content = response.json()
+        response = await api_get(f"/economy/balances/me", interaction.user.id)
+        content = response["content"]
 
-        if response.ok:
+        if response["ok"]:
             embed: discord.Embed = discord.Embed(title="Balance", color=settings.BLUE)
             embed.set_thumbnail(url=interaction.user.display_avatar.url)
 
@@ -335,18 +335,21 @@ class Economy(commands.Cog):
         # Send exchange request to api
         data = {"currency_from_id": int(currency_from),
                 "currency_to_id": int(currency_to),
-                "amount": int(amount)}
-        response = api_post(f"/economy/currencies/exchange", interaction.user.id, data)
-        content = response.json()
+                "amount": float(amount)}
+        response = await api_post(f"/economy/currencies/exchange/start", interaction.user.id, data)
+        content = response["content"]
 
-        if response.ok:
+        if response["ok"]:
             view = ExchangeView(interaction.user, content)
             embed = await view.refresh()
             await interaction.followup.send(embed=embed, view=view)
         else:
             title = ""
-            if content["detail"]:
-                title = content["detail"]
+            if "detail" in content:
+                if type(content["detail"]) != str:
+                    title = "Amount must be greater than zero"
+                else:
+                    title = content["detail"]
             embed: discord.Embed = discord.Embed(title=title, description="", color=settings.RED)
             embed.set_footer(text=settings.FOOTER)
             await interaction.followup.send(embed=embed)
@@ -366,10 +369,10 @@ class Economy(commands.Cog):
         await interaction.response.defer()
 
         # Get balances from api
-        response = api_get(f"/economy/balances?currency_id={currency}&order_by=-balance&size=10", interaction.user.id)
-        content = response.json()
+        response = await api_get(f"/economy/balances?currency_id={currency}&order_by=-balance&size=10", interaction.user.id)
+        content = response["content"]
 
-        if response.ok:
+        if response["ok"]:
             # Get currency from the first balance (as they are all the same)
             currency = content['items'][0]['currency']
 
@@ -412,18 +415,22 @@ class Economy(commands.Cog):
 
         # Send blackjack request to api
         data = {"currency_id": int(currency),
-                "bet": int(amount)}
-        response = api_post(f"/economy/gambling/blackjack", interaction.user.id, data)
-        content = response.json()
+                "bet": float(amount)}
+        response = await api_post(f"/economy/gambling/blackjack", interaction.user.id, data)
+        content = response["content"]
 
-        if response.ok:
+        if response["ok"]:
             view = BlackjackView(interaction.user, content)
             embed = await view.refresh()
             await interaction.followup.send(embed=embed, view=view)
         else:
             title = ""
-            if content["detail"]:
-                title = content["detail"]
+            if "detail" in content:
+                self.economy_logger.info(content["detail"])
+                if type(content["detail"]) != str:
+                    title = "Bet amount must be greater than zero"
+                else:
+                    title = content["detail"]
             embed: discord.Embed = discord.Embed(title=title, description="", color=settings.RED)
             embed.set_footer(text=settings.FOOTER)
             await interaction.followup.send(embed=embed)
@@ -438,10 +445,10 @@ class Economy(commands.Cog):
         await interaction.response.defer()
 
         # Send get job request to api
-        response = api_get(f"/economy/jobs/me", interaction.user.id)
-        content = response.json()
+        response = await api_get(f"/economy/jobs/me", interaction.user.id)
+        content = response["content"]
 
-        if response.ok:
+        if response["ok"]:
             view = JobView(interaction.user, content)
             embed = await view.refresh()
             await interaction.followup.send(embed=embed, view=view)
@@ -463,10 +470,10 @@ class Economy(commands.Cog):
         await interaction.response.defer()
 
         # Send work request to api
-        response = api_post(f"/economy/jobs/work", interaction.user.id)
-        content = response.json()
+        response = await api_post(f"/economy/jobs/work", interaction.user.id)
+        content = response["content"]
 
-        if response.ok:
+        if response["ok"]:
             # Split response into title and description
             message = content.split(". ")
             embed: discord.Embed = discord.Embed(title=message[0], description=f"{message[1]}", color=settings.GREEN)
@@ -499,10 +506,10 @@ class Economy(commands.Cog):
         data = {"discord_id": str(target_user.id),
                 "currency_id": int(currency),
                 "amount": amount}
-        response = api_post(f"/economy/balances/gift", interaction.user.id, data)
-        content = response.json()
+        response = await api_post(f"/economy/balances/gift", interaction.user.id, data)
+        content = response["content"]
 
-        if response.ok:
+        if response["ok"]:
             # Split response into title and description
             message = content.split(". ")
             embed: discord.Embed = discord.Embed(title=message[0], description=f"{message[1]}\n{message[2]}", color=settings.GREEN)
