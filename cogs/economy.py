@@ -1,5 +1,6 @@
 # Module Imports
 import logging
+from datetime import datetime, timedelta, timezone
 
 import discord
 from discord import app_commands
@@ -270,6 +271,95 @@ class JobView(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=new_view)
 
 
+# Transactions view
+class TransactionsView(discord.ui.View):
+    def __init__(self, user: discord.User, transactions_response: dict, page: int = 1):
+        super().__init__(timeout=300)
+        self.user = user
+        self.transactions_response = transactions_response
+        self.page = page
+
+    # Check that user that started the interaction can interact
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.id == self.user.id
+    
+    # Embed logic
+    async def refresh(self) -> discord.Embed:
+        # Enable buttons
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = False
+
+        # Disable buttons if min or max page is reached
+        if self.page == 1:
+            for item in self.children:
+                if isinstance(item, discord.ui.Button) and item.label == "<":
+                    item.disabled = True
+        elif self.page == self.transactions_response["pages"]:
+            for item in self.children:
+                if isinstance(item, discord.ui.Button) and item.label == ">":
+                    item.disabled = True
+
+        # Format embed
+        description = ""
+        for transaction in self.transactions_response["items"]:
+            # Format transaction time
+            transaction_timedelta: timedelta = datetime.now(timezone.utc) - datetime.fromisoformat(transaction["timestamp"]).replace(tzinfo=timezone.utc)
+            timestamp = None
+            if 0 < transaction_timedelta.seconds < 60:
+                timestamp = f"{transaction_timedelta.seconds:.0f} seconds ago"
+            elif 60 < transaction_timedelta.seconds < 120:
+                timestamp = f"{(transaction_timedelta.seconds / 60):.0f} minute ago"
+            elif 120 < transaction_timedelta.seconds < 3600:
+                timestamp = f"{(transaction_timedelta.seconds / 60):.0f} minutes ago"
+            elif 3600 < transaction_timedelta.seconds < 7200:
+                timestamp = f"{(transaction_timedelta.seconds / 3600):.0f} hour ago"
+            elif 7200 < transaction_timedelta.seconds < 86400:
+                timestamp = f"{(transaction_timedelta.seconds / 3600):.0f} hours ago"
+            elif 86400 < transaction_timedelta.seconds < 172800:
+                timestamp = f"{(transaction_timedelta.seconds / 86400):.0f} day ago"
+            else:
+                timestamp = f"{(transaction_timedelta.seconds / 86400):.0f} days ago"
+
+            currency_prefix = transaction['currency']['prefix'] if transaction['currency']['prefix'] else None
+            if transaction['amount'] > 0:
+                description = description + f"`{timestamp}` +{currency_prefix}{transaction['amount']:.{transaction['currency']['decimal_places']}f} {transaction['currency']['display_name']} - {transaction['note']}\n"
+            else:
+                description = description + f"`{timestamp}` -{currency_prefix}{abs(transaction['amount']):.{transaction['currency']['decimal_places']}f} {transaction['currency']['display_name']} - {transaction['note']}\n"
+
+        # If no transactions
+        if description == "":
+            description = "No transactions to show"
+
+        embed: discord.Embed = discord.Embed(title=f"Recent Transactions (Page {self.page} of {self.transactions_response['pages']})", description=description, color=settings.BLUE)
+        embed.set_footer(text=settings.FOOTER)
+        return embed
+
+    # Previous page 
+    @discord.ui.button(label="<", style=discord.ButtonStyle.primary)
+    async def previous_page_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Send request to api
+        response = await api_get(f"/economy/transactions/me?order_by=-timestamp&page={self.page - 1}&size=10", interaction.user.id)
+        self.page -= 1
+
+        # Send new embed
+        new_view = TransactionsView(self.user, response["content"], self.page)
+        embed = await new_view.refresh()
+        await interaction.response.edit_message(embed=embed, view=new_view)
+
+    # Next page 
+    @discord.ui.button(label=">", style=discord.ButtonStyle.primary)
+    async def next_page_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Send request to api
+        response = await api_get(f"/economy/transactions/me?order_by=-timestamp&page={self.page + 1}&size=10", interaction.user.id)
+        self.page += 1
+
+        # Send new embed
+        new_view = TransactionsView(self.user, response["content"], self.page)
+        embed = await new_view.refresh()
+        await interaction.response.edit_message(embed=embed, view=new_view)
+
+
 # Main cog class
 class Economy(commands.Cog):
 
@@ -522,6 +612,31 @@ class Economy(commands.Cog):
         # Send embed
         embed.set_footer(text=settings.FOOTER)
         await interaction.followup.send(embed=embed)
+
+    # Transactions Command
+    @app_commands.command(name="transactions", description="View your most recent transactions")
+    async def transactions(self, interaction: discord.Interaction) -> None:
+        # Log Command
+        self.economy_logger.info(f"/transactions executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
+
+        # Defer interaction
+        await interaction.response.defer()
+
+        # Send request to api
+        response = await api_get(f"/economy/transactions/me?order_by=-timestamp&page=1&size=10", interaction.user.id)
+        content = response["content"]
+
+        if response["ok"]:
+            view = TransactionsView(interaction.user, content)
+            embed = await view.refresh()
+            await interaction.followup.send(embed=embed, view=view)
+        else:
+            description = ""
+            if content["detail"]:
+                description = content["detail"]
+            embed: discord.Embed = discord.Embed(title="Error getting transactions", description=description, color=settings.RED)
+            embed.set_footer(text=settings.FOOTER)
+            await interaction.followup.send(embed=embed)
 
 
 # Setup function

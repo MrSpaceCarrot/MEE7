@@ -21,18 +21,13 @@ class General(commands.Cog):
     # Message listener
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> str | None:
-        # Get variables from message
-        username: str = str(message.author)
-        user_message: str = str(message.content)
-        user_id: str = str(message.author.id)
-
         # Return if message was sent by the bot
-        if message.author.id in [762864416734969866, 1165935746167885834]:
+        if message.author.id in [762864416734969866, 1165935746167885834]: 
             return
 
         # Get response from responses and send it
         try:
-            response: str = responses.handle_response(user_message, user_id)
+            response: str = await responses.handle_response(message)
             
             # Return if no response was found, send response otherwise
             if response == None:
@@ -59,7 +54,7 @@ class General(commands.Cog):
         embed.add_field(name="**Servers**", value="/server-list, /server-start, /server-help", inline=False)
         embed.add_field(name="**Music**", value="/connect, /disconnect, /play, /skip, /pause, /resume, /queue", inline=False)
         embed.add_field(name="**Fun**", value="/catpic, /shu-todoroki, /slander", inline=False)
-        embed.add_field(name="**Economy**", value="/balance, /blackjack, /exchange, /gift, /job, /leaderboard, /work", inline=False)
+        embed.add_field(name="**Economy**", value="/balance, /blackjack, /exchange, /gift, /job, /leaderboard, /transactions, /work", inline=False)
         embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 

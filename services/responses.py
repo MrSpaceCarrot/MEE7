@@ -1,13 +1,18 @@
 # Module Imports
 import random
-# Handle response function
-def handle_response(message: str, userid: str) -> str:
-    # Lower mesage
-    message = message.lower()
+import discord
+from services.api import api_post
+
+
+# Handle response
+async def handle_response(message: discord.Message) -> str:
+    # Ignore if message is sent by bot
+    if message.author.bot:
+        return None
 
     # Handle response
-    banned: str = handle_banned_words(message, userid)
-    custom_response: str = handle_custom_response(message, userid)
+    banned = await handle_banned_words(message)
+    custom_response = await handle_custom_response(message)
 
     # Return response if either function returned anything
     if banned != None:
@@ -17,38 +22,33 @@ def handle_response(message: str, userid: str) -> str:
     else:
         return None
     
-# Handle banned words function
-def handle_banned_words(message: str, userid: str) -> str:
+# Handle banned words
+async def handle_banned_words(message: discord.Message) -> str:
     # List of all banned words
     banned_words = []
 
     # If message contains any of these words, delete message and send message from bot
-    if message in banned_words:
+    if message.content.lower() in banned_words:
         return "DELETE"
     
-
-# Handle custom response function
-def handle_custom_response(message: str, userid: str) -> str:
-    # RE-ADD RANDOM AURA GAIN / LOSS
-    # TO DO
-    """
+# Handle custom response
+async def handle_custom_response(message: discord.Message) -> str:
+    # Randomly make users lose or gain aura
     random_number = random.randint(1, 100)
-    if random_number >= 80:
-        database.operations.populate_user_currencies(user_id=userid)
-        user_aura_balance = database.operations.get_user_balance(userid, "aura")
-        database.operations.set_user_balance(userid, "aura", user_aura_balance.balance + 10)
-    elif random_number <= 10:
-        database.operations.populate_user_currencies(user_id=userid)
-        user_aura_balance = database.operations.get_user_balance(userid, "aura")
-        database.operations.set_user_balance(userid, "aura", user_aura_balance.balance - 10)
-    """
+    if random_number >= 90:
+        data = {"discord_id": str(message.author.id), "currency_id": 1, "mode": "Add","amount": 10, "note": "Random aura gain"}
+        await api_post("/economy/balances/modify", body=data)
+    elif random_number <= 5:
+        data = {"discord_id": str(message.author.id), "currency_id": 1, "mode": "Subtract","amount": 10, "note": "Random aura loss"}
+        await api_post("/economy/balances/modify", body=data)
 
-    if message == "wafflehipponuts":
+    # Custom responses
+    content = message.content.lower()
+    if content == "wafflehipponuts":
         return "Congrats! You found this very obscure response!"
 
-    elif "i made mee7" in message:
-        if userid == "725251028999602239":
+    elif "i made mee7" in content:
+        if message.author.id == "725251028999602239":
             return "yea"
         else:
             return "No you didn't"
-        
