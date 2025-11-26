@@ -46,7 +46,7 @@ class Servers(commands.Cog):
                 success = False
 
             # Get servers from api
-            servers_response = await api_get(f"/servers?order_by=id", interaction.user.id)
+            servers_response = await api_get(f"/servers?order_by=id&size=100", interaction.user.id)
             servers_content = servers_response["content"]
 
             # If servers were not successfully gotten

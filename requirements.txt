@@ -8,7 +8,7 @@ aiohappyeyeballs==2.6.1
     # via
     #   -r requirements.in
     #   aiohttp
-aiohttp==3.13.1
+aiohttp==3.13.2
     # via
     #   -r requirements.in
     #   discord-py
@@ -37,7 +37,7 @@ cffi==2.0.0
     # via
     #   -r requirements.in
     #   pynacl
-click==8.3.0
+click==8.3.1
     # via
     #   -r requirements.in
     #   pip-tools
@@ -72,7 +72,7 @@ multidict==6.7.0
     #   -r requirements.in
     #   aiohttp
     #   yarl
-numpy==2.3.4
+numpy==2.3.5
     # via
     #   -r requirements.in
     #   contourpy
@@ -81,7 +81,7 @@ packaging==25.0
     # via
     #   -r requirements.in
     #   build
-pip-tools==7.5.1
+pip-tools==7.5.2
     # via -r requirements.in
 propcache==0.4.1
     # via
@@ -92,17 +92,17 @@ pycparser==2.23
     # via
     #   -r requirements.in
     #   cffi
-pydantic==2.12.3
+pydantic==2.12.4
     # via
     #   -r requirements.in
     #   pydantic-settings
-pydantic-core==2.41.4
+pydantic-core==2.41.5
     # via
     #   -r requirements.in
     #   pydantic
-pydantic-settings==2.11.0
+pydantic-settings==2.12.0
     # via -r requirements.in
-pynacl==1.6.0
+pynacl==1.6.1
     # via -r requirements.in
 pyparsing==3.2.5
     # via -r requirements.in
@@ -113,9 +113,11 @@ pyproject-hooks==1.2.0
     #   pip-tools
 python-dateutil==2.9.0.post0
     # via -r requirements.in
-python-dotenv==1.1.1
-    # via pydantic-settings
-scipy==1.16.2
+python-dotenv==1.2.1
+    # via
+    #   -r requirements.in
+    #   pydantic-settings
+scipy==1.16.3
     # via -r requirements.in
 six==1.17.0
     # via
@@ -139,7 +141,9 @@ tzdata==2025.2
 wavelink==3.4.1
     # via -r requirements.in
 wheel==0.45.1
-    # via pip-tools
+    # via
+    #   -r requirements.in
+    #   pip-tools
 yarl==1.22.0
     # via
     #   -r requirements.in

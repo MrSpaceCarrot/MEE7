@@ -306,20 +306,21 @@ class TransactionsView(discord.ui.View):
             # Format transaction time
             transaction_timedelta: timedelta = datetime.now(timezone.utc) - datetime.fromisoformat(transaction["timestamp"]).replace(tzinfo=timezone.utc)
             timestamp = None
-            if 0 < transaction_timedelta.seconds < 59:
-                timestamp = f"{transaction_timedelta.seconds:.0f} seconds ago"
-            elif 60 < transaction_timedelta.seconds < 119:
-                timestamp = f"{(transaction_timedelta.seconds / 60):.0f} minute ago"
-            elif 120 < transaction_timedelta.seconds < 3599:
-                timestamp = f"{(transaction_timedelta.seconds / 60):.0f} minutes ago"
-            elif 3600 < transaction_timedelta.seconds < 7199:
-                timestamp = f"{(transaction_timedelta.seconds / 3600):.0f} hour ago"
-            elif 7200 < transaction_timedelta.seconds < 86399:
-                timestamp = f"{(transaction_timedelta.seconds / 3600):.0f} hours ago"
-            elif 86400 < transaction_timedelta.seconds < 172799:
-                timestamp = f"{(transaction_timedelta.seconds / 86399):.0f} day ago"
+            seconds = transaction_timedelta.total_seconds()
+            if 0 < seconds < 59:
+                timestamp = f"{seconds:.0f} seconds ago"
+            elif 60 < seconds < 119:
+                timestamp = f"{(seconds / 60):.0f} minute ago"
+            elif 120 < seconds < 3599:
+                timestamp = f"{(seconds / 60):.0f} minutes ago"
+            elif 3600 < seconds < 7199:
+                timestamp = f"{(seconds / 3600):.0f} hour ago"
+            elif 7200 < seconds < 86399:
+                timestamp = f"{(seconds / 3600):.0f} hours ago"
+            elif 86400 < seconds < 172799:
+                timestamp = f"{(seconds / 86399):.0f} day ago"
             else:
-                timestamp = f"{(transaction_timedelta.seconds / 86400):.0f} days ago"
+                timestamp = f"{(seconds / 86400):.0f} days ago"
 
             currency_prefix = transaction['currency']['prefix'] if transaction['currency']['prefix'] else ""
             if transaction['amount'] > 0:
