@@ -160,6 +160,64 @@ class Servers(commands.Cog):
         embed.set_footer(text=settings.FOOTER)
         await interaction.followup.send(embed=embed)
 
+    # Active servers command
+    @app_commands.command(name="active-servers", description="Lists all currently running servers")
+    async def activeservers(self, interaction: discord.Interaction) -> None:
+        # Log Command
+        self.commands_logger.info(f"/active-servers executed by {interaction.user} in #{interaction.guild}")
+
+        # Defer interaction
+        await interaction.response.defer()
+
+        # Define variables for embed
+        title: str = "🟢 Servers currently online"
+        description: list = []
+        description_final: str = ""
+
+        # Get servers from api
+        servers_response = await api_get(f"/servers?order_by=id&is_running=true", interaction.user.id)
+        servers_content = servers_response["content"]
+
+        # TODO
+
+        """
+
+        # If servers were not successfully gotten
+        if not servers_response["ok"]:
+            if servers_content["detail"]:
+                description = categories_content["detail"]
+                self.commands_logger.debug(f"Cannot get servers, {servers_response['status']}")
+            success = False
+
+
+
+
+        # Loop through all servers, add running ones to the list
+        servers: list = database.operations.get_server_names("All")
+        for server in servers:
+            if await self.check_server_running(server):
+                description.append(server)
+
+        # Add all running servers to a string
+        for i in description:
+            
+            # If only one server is running, no comma needed
+            if len(description_final) == 0:
+                description_final = description_final + i
+
+            # Add comma if more than one server running
+            elif len(description_final):
+                description_final = description_final + f", {i}"
+
+        """
+
+
+
+        # Send embed
+        embed: discord.Embed = discord.Embed(title=title, description=description_final, color=settings.BLUE)
+        embed.set_footer(text=settings.FOOTER)
+        await interaction.followup.send(embed=embed)
+
 
 # Setup function
 async def setup(client):
