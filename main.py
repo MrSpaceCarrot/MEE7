@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Module Imports
 from bot import run_bot
 
