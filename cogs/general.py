@@ -6,8 +6,8 @@ from discord import app_commands
 from discord.app_commands import Choice
 from discord.ext import commands
 
-import responses
-from constants import Constants
+from config import settings
+import services.responses as responses
 
 
 # Main cog class
@@ -16,24 +16,18 @@ class General(commands.Cog):
     # Class init
     def __init__(self, client):
         self.client = client
-        self.CONSTANTS = Constants()
         self.commands_logger: logging.Logger = logging.getLogger("commands")
 
     # Message listener
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> str | None:
-        # Get variables from message
-        username: str = str(message.author)
-        user_message: str = str(message.content)
-        user_id: str = str(message.author.id)
-
         # Return if message was sent by the bot
-        if message.author.id in [762864416734969866, 1165935746167885834]:
+        if message.author.id in [762864416734969866, 1165935746167885834]: 
             return
 
         # Get response from responses and send it
         try:
-            response: str = responses.handle_response(user_message, user_id)
+            response: str = await responses.handle_response(message)
             
             # Return if no response was found, send response otherwise
             if response == None:
@@ -55,13 +49,13 @@ class General(commands.Cog):
         self.commands_logger.info(f"/help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
         # Send embed
-        embed: discord.Embed = discord.Embed(title="Commands", description="All commands, sorted by type", color=self.CONSTANTS.BLUE)
+        embed: discord.Embed = discord.Embed(title="Commands", description="All commands, sorted by type", color=settings.BLUE)
         embed.add_field(name="**General**", value="/help, /activity", inline=False)
-        embed.add_field(name="**Servers**", value="/server-list, /server-start, /server-help, /active-servers", inline=False)
+        embed.add_field(name="**Servers**", value="/server-list, /server-start, /server-help", inline=False)
         embed.add_field(name="**Music**", value="/connect, /disconnect, /play, /skip, /pause, /resume, /queue", inline=False)
         embed.add_field(name="**Fun**", value="/catpic, /shu-todoroki, /slander", inline=False)
-        embed.add_field(name="**Economy**", value="/bailout, /balance, /blackjack, /exchange, /gift, /job, /leaderboard, /work", inline=False)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.add_field(name="**Economy**", value="/balance, /blackjack, /exchange, /gift, /job, /leaderboard, /transactions, /work", inline=False)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
 
     # Activity command
@@ -81,8 +75,8 @@ class General(commands.Cog):
             case "listening": await self.client.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=text))
 
         # Send embed
-        embed: discord.Embed = discord.Embed(title="✅ Bot activity has been changed", description="", color=self.CONSTANTS.BLUE)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed: discord.Embed = discord.Embed(title="✅ Bot activity has been changed", description="", color=settings.BLUE)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.response.send_message(embed=embed)
         
 

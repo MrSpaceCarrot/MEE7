@@ -1,0 +1,47 @@
+[project]
+name = "mee7"
+version = "0.1.0"
+description = "A discord bot"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "aiohappyeyeballs",
+    "aiohttp",
+    "aiosignal",
+    "annotated-types",
+    "async-timeout",
+    "attrs",
+    "build",
+    "cffi",
+    "click",
+    "colorama",
+    "contourpy",
+    "cycler",
+    "discord-py[voice]",
+    "fonttools",
+    "frozenlist",
+    "idna",
+    "kiwisolver",
+    "multidict",
+    "numpy",
+    "packaging",
+    "pip-tools",
+    "propcache",
+    "pycparser",
+    "pydantic",
+    "pydantic-core",
+    "pydantic-settings",
+    "pynacl",
+    "pyparsing",
+    "pyproject-hooks",
+    "python-dateutil",
+    "python-dotenv",
+    "scipy",
+    "six",
+    "typing-extensions",
+    "typing-inspection",
+    "tzdata",
+    "wavelink",
+    "wheel",
+    "yarl",
+]

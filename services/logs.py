@@ -2,8 +2,6 @@
 import logging
 import logging.handlers
 
-from constants import Constants
-
 # Define ANSI escape sequences for colors
 LOG_COLORS = {
     logging.DEBUG: "\033[94m",    # Blue

@@ -1,14 +1,14 @@
 # Module Imports
 import logging
-import requests
+from datetime import datetime, timedelta, timezone
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from constants import Constants
-import database.operations
-from database.models import Server
+from config import settings
+from services.api import api_get, api_post
+from services.responses import format_timedelta
 
 
 # Main cog class
@@ -17,23 +17,7 @@ class Servers(commands.Cog):
     # Class init
     def __init__(self, client):
         self.client = client
-        self.CONSTANTS = Constants()
         self.commands_logger: logging.Logger = logging.getLogger("commands")
-
-    # Function to see if server is running
-    async def check_server_running(self, server) -> bool:
-        # Get server uuid
-        server_uuid: str = database.operations.get_server_property(server, "uuid")
-
-        # Return false if server does not exist
-        if not server_uuid : return None
-
-        response: requests.Response = requests.get(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_uuid}/resources", headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'})
-        content = response.json()
-        running: str = content["attributes"]["current_state"]
-
-        # Return result
-        return True if running == "running" else False
 
     # Server List Command
     @app_commands.command(name="server-list", description="Lists all available servers you can start up")
@@ -41,18 +25,56 @@ class Servers(commands.Cog):
         # Log Command
         self.commands_logger.info(f"/server-list executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
-        # Create embed
-        embed: discord.Embed = discord.Embed(title="📜 Server List",
-                              description="All servers that can be run with the /start-server command. Use /server-help to find out more about each server",
-                              color=self.CONSTANTS.BLUE)
-        
-        categories: list = database.operations.get_server_categories()
-        for category in categories:
-            embed.add_field(name=f"**{category}**", value=", ".join(database.operations.get_server_names(category)), inline=False)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        # Defer interaction
+        await interaction.response.defer()
 
+        # Define variables for embed
+        title: str = f"❌ Error getting server list'"
+        description: str = ""
+        embed_color: discord.Color = settings.RED
+
+        # Break out of loop if failure occurs
+        success: bool = True
+        while success:
+            # Get server categories from api
+            categories_response = await api_get(f"/servers/categories", interaction.user.id)
+            categories_content = categories_response["content"]
+
+            # If categories were not successfully gotten
+            if not categories_response["ok"]:
+                if categories_content["detail"]:
+                    description = categories_content["detail"]
+                    self.commands_logger.debug(f"Cannot get server list, {categories_response['status']}")
+                success = False
+
+            # Get servers from api
+            servers_response = await api_get(f"/servers?order_by=id&size=100", interaction.user.id)
+            servers_content = servers_response["content"]
+
+            # If servers were not successfully gotten
+            if not servers_response["ok"]:
+                if servers_content["detail"]:
+                    description = categories_content["detail"]
+                    self.commands_logger.debug(f"Cannot get servers, {servers_response['status']}")
+                success = False
+
+            # If all information was successfully gotten, format embed
+            embed: discord.Embed = discord.Embed(title="📜 Server List", description="All servers that can be run with the /start-server command. Use /server-help to find out more about each server", color=settings.BLUE)
+
+            for category in categories_content["items"]:
+                category_servers = []
+                for server in servers_content["items"]:
+                    if server["category_id"] == category["id"]:
+                        category_servers.append(server["display_name"])
+                embed.add_field(name=f"**{category['name']}**", value=", ".join(category_servers), inline=False)
+            break
+        
+        if not success:
+            embed: discord.Embed = discord.Embed(title=title, description=description, color=embed_color)
+        
         # Send embed
-        await interaction.response.send_message(embed=embed)
+        embed.set_footer(text=settings.FOOTER)
+        await interaction.followup.send(embed=embed)
 
     # Start Server Command
     @app_commands.command(name="server-start", description="Starts a specified server")
@@ -61,55 +83,31 @@ class Servers(commands.Cog):
         # Log Command
         self.commands_logger.info(f"/server-start executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
+        # Defer interaction
+        await interaction.response.defer()
+
         # Define variables for embed
-        server: str = (server.lower()).capitalize()
-        title: str = ""
         description: str = ""
-        success: bool = False
-        embed_color: discord.Color = None
-        running: bool = await self.check_server_running(server)
+        
+        # Attempt to start server through api
+        response = await api_post(f"/servers/start/{server.lower()}", interaction.user.id)
+        content = response["content"]
 
-        # Check if server is already running, fail if so
-        if running == True or running == None:
-            success = False
-        else:
-            # Try to start server
-            server_info: dict = database.operations.get_server_information(server)
-            response: requests.Response = requests.post(f"{self.CONSTANTS.PPDOMAIN}api/client/servers/{server_info.uuid}/power", 
-                                     headers={'Authorization': f'Bearer {self.CONSTANTS.PPAPIKEY}'}, 
-                                     json={'signal': 'start'})
-            
-            # Check response code
-            request_code: int = response.status_code
-            if request_code == 204:
-                success = True
-
-        # Set embed information
-        if success == True:
-            title = f"✅ Successfully starting the {server} server"
-            description = ""
-            embed_color = self.CONSTANTS.GREEN
+        if response["ok"]:
+            title = f"✅ {response['content']}"
+            embed_color = settings.GREEN
             self.commands_logger.debug("Successfully starting server")
-
         else:
-            # If running is true, server must already be online
-            if running == True:
-                title = f"❌ {server} is already online"
-                description = ""
-                embed_color = self.CONSTANTS.RED
-                self.commands_logger.debug("Bot cannot start server, server already online")
-
-            # If running is false, server must be invalid
-            else:
-                title = f"❌ {server} is not a valid server"
-                description = "Run /server-list to get a list of valid servers"
-                embed_color = self.CONSTANTS.RED
-                self.commands_logger.debug("Bot cannot start server, server name is not valid")
+            title = f"❌ Error starting server '{server}'"
+            embed_color: discord.Color = settings.RED
+            if content["detail"]:
+                description = content["detail"]
+            self.commands_logger.debug(f"Cannot start server, {response['status']}")
 
         # Send embed
         embed: discord.Embed = discord.Embed(title=title, description=description, color=embed_color)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
-        await interaction.response.send_message(embed=embed)
+        embed.set_footer(text=settings.FOOTER)
+        await interaction.followup.send(embed=embed)
 
     # Server help command
     @app_commands.command(name="server-help", description="Lists info about a specified server")
@@ -118,48 +116,53 @@ class Servers(commands.Cog):
         # Log Command
         self.commands_logger.info(f"/server-help executed by {interaction.user} in {interaction.guild} #{interaction.channel}")
 
-        # Get server info and assign it to variables, set embed to error if no such server exists
-        server_info: Server = database.operations.get_server_information(server)
-        if not server_info:
-            embed: discord.Embed = discord.Embed(title=f"❌ {server} is not a valid server",
-                                  description="Run /server-list to get a list of valid servers", color=self.CONSTANTS.RED)
-            self.commands_logger.debug("Bot cannot return server information, server name is not valid")
-        else:
-            # Create embed
-            embed: discord.Embed = discord.Embed(title=f"{server_info.emoji} {server_info.name}", description=server_info.description, color=self.CONSTANTS.BLUE)
-            embed.add_field(name="**💻 Version**", value=f"{server_info.version} {server_info.modloader}", inline=False)
+        # Defer interaction
+        await interaction.response.defer()
 
-            # Add domain to embed
-            embed.add_field(name="**✉️ How To Join**", value=server_info.domain, inline=False)
+        # Define variables for embed
+        description: str = ""
 
-            # Add mod download information to embed
-            if server_info.modloader != "Vanilla":
-                if server_info.modconditions != None:
-                    embed.add_field(name="**⏬ Modpack Download: **", value=f"[{server_info.modconditions}]({server_info.moddownload})",
-                                    inline=False)
+        # Get server from api
+        response = await api_get(f"/servers/{server.lower()}", interaction.user.id)
+        content = response['content']
+
+        if response["ok"]:
+            embed: discord.Embed = discord.Embed(title=f"{content['emoji']} {content['display_name']}", description=content['description'], color=settings.BLUE)
+            embed.add_field(name="**💻 Version**", value=f"{content['version']} {content['modloader']}", inline=False)
+            embed.add_field(name="**✉️ How To Join**", value=content['domain'], inline=False)
+
+            if content['modloader'] != "Vanilla":
+                if content['modconditions'] != None:
+                    embed.add_field(name="**⏬ Modpack Download: **", value=f"[{content['modconditions']}]({content['moddownload']})", inline=False)
                 else:
-                    embed.add_field(name="**📜 Modlist: **", value=f"{server_info.modlist}", inline=False)
-                    embed.add_field(name="**⏬ Modpack Download: **", value=f"[Google drive link]({server_info.moddownload})",
-                                    inline=False)
+                    embed.add_field(name="**📜 Modlist: **", value=f"{content['modlist']}", inline=False)
+                    embed.add_field(name="**⏬ Modpack Download: **", value=f"[Google drive link]({content['moddownload']})", inline=False)
 
-            # Add message if the server is no longer active
-            if server_info.active == False:
-                embed.add_field(name="**❗ Activity**",
-                                value="This server has been inactive for a long time, and can be considered dead",
-                                inline=False)
+            if not content['is_active']:
+                embed.add_field(name="**❗ Activity**", value="This server has been inactive for a long time, and can be considered dead", inline=False)
 
-            # Add current activity status of the server
-            is_running = await self.check_server_running(server.lower().capitalize())
-            if is_running == True:
-                embed.add_field(name="**🟢 Status**", value="This server is currently online", inline=False)
+            if content["is_running"]:
+                uptime_timedelta: timedelta = datetime.now(timezone.utc) - datetime.fromisoformat(content["time_started"]).replace(tzinfo=timezone.utc)
+                running_text: str = f"Up {await format_timedelta(uptime_timedelta)}"
+                embed.add_field(name="**🟢 Status**", value=f"This server is currently online - {running_text}", inline=False)
             else:
                 embed.add_field(name="**🔴 Status**", value="This server is currently offline", inline=False)
 
             self.commands_logger.debug("Successfully returned server information")
+            
+        else:
+            if content["detail"]:
+                description = content["detail"]
+
+            if response["status"] == 404:
+                description = description + "\nRun /server-list to get a list of valid servers"
+                
+            embed: discord.Embed = discord.Embed(title=f"❌ Error getting server '{server}'", description=description, color=settings.RED)
+            self.commands_logger.debug(f"Cannot get server, {response['status']}")
 
         # Send embed
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
-        await interaction.response.send_message(embed=embed)
+        embed.set_footer(text=settings.FOOTER)
+        await interaction.followup.send(embed=embed)
 
     # Active servers command
     @app_commands.command(name="active-servers", description="Lists all currently running servers")
@@ -170,31 +173,25 @@ class Servers(commands.Cog):
         # Defer interaction
         await interaction.response.defer()
 
-        # Define variables for embed
-        title: str = "🟢 Servers currently online"
-        description: list = []
-        description_final: str = ""
+        # Get servers from api
+        response = await api_get(f"/servers?order_by=id&is_running=true", interaction.user.id)
+        content = response["content"]
 
-        # Loop through all servers, add running ones to the list
-        servers: list = database.operations.get_server_names("All")
-        for server in servers:
-            if await self.check_server_running(server):
-                description.append(server)
-
-        # Add all running servers to a string
-        for i in description:
+        if response["ok"]:
+            description = ""
             
-            # If only one server is running, no comma needed
-            if len(description_final) == 0:
-                description_final = description_final + i
+            for server in content["items"]:
+                server_title: str = server["display_name"]
+                server_start_datetime: datetime = datetime.fromisoformat(server["time_started"]).replace(tzinfo=timezone.utc)
+                now: datetime = datetime.now(timezone.utc)
+                time_since_started: timedelta = now - server_start_datetime
+                description += f"{server_title} - Up {await format_timedelta(time_since_started)}\n"
+            
+            embed: discord.Embed = discord.Embed(title="🟢 Servers currently online", description=description, color=settings.BLUE)
+        else:
+            embed: discord.Embed = discord.Embed(title="❌ Error getting active servers", description=None, color=settings.RED)
 
-            # Add comma if more than one server running
-            elif len(description_final):
-                description_final = description_final + f", {i}"
-
-        # Send embed
-        embed: discord.Embed = discord.Embed(title=title, description=description_final, color=self.CONSTANTS.BLUE)
-        embed.set_footer(text=self.CONSTANTS.FOOTER)
+        embed.set_footer(text=settings.FOOTER)
         await interaction.followup.send(embed=embed)
 
 
