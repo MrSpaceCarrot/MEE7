@@ -1,5 +1,7 @@
 # Module Imports
+import math
 import random
+from datetime import timedelta
 import discord
 from services.api import api_post
 
@@ -52,3 +54,22 @@ async def handle_custom_response(message: discord.Message) -> str:
             return "yea"
         else:
             return "No you didn't"
+
+
+# Format a timedelta into seconds, hours, mins, days
+async def format_timedelta(delta: timedelta) -> str:
+    seconds = delta.total_seconds()
+    if 0 < seconds < 59:
+        return f"{math.floor(seconds)} seconds"
+    elif 60 < seconds < 119:
+        return f"{math.floor(seconds / 60)} minute"
+    elif 120 < seconds < 3599:
+        return f"{math.floor(seconds / 60)} minutes"
+    elif 3600 < seconds < 7199:
+        return f"{math.floor(seconds / 3600)} hour"
+    elif 7200 < seconds < 86399:
+        return f"{math.floor(seconds / 3600)} hours"
+    elif 86400 < seconds < 172799:
+        return f"{math.floor(seconds / 86399)} day"
+    else:
+        return f"{math.floor(seconds / 86400)} days"

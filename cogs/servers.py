@@ -1,5 +1,6 @@
 # Module Imports
 import logging
+from datetime import datetime, timedelta, timezone
 
 import discord
 from discord import app_commands
@@ -7,6 +8,7 @@ from discord.ext import commands
 
 from config import settings
 from services.api import api_get, api_post
+from services.responses import format_timedelta
 
 
 # Main cog class
@@ -140,7 +142,9 @@ class Servers(commands.Cog):
                 embed.add_field(name="**❗ Activity**", value="This server has been inactive for a long time, and can be considered dead", inline=False)
 
             if content["is_running"]:
-                embed.add_field(name="**🟢 Status**", value="This server is currently online", inline=False)
+                uptime_timedelta: timedelta = datetime.now(timezone.utc) - datetime.fromisoformat(content["time_started"]).replace(tzinfo=timezone.utc)
+                running_text: str = f"Up {await format_timedelta(uptime_timedelta)}"
+                embed.add_field(name="**🟢 Status**", value=f"This server is currently online - {running_text}", inline=False)
             else:
                 embed.add_field(name="**🔴 Status**", value="This server is currently offline", inline=False)
 
@@ -169,52 +173,24 @@ class Servers(commands.Cog):
         # Defer interaction
         await interaction.response.defer()
 
-        # Define variables for embed
-        title: str = "🟢 Servers currently online"
-        description: list = []
-        description_final: str = ""
-
         # Get servers from api
-        servers_response = await api_get(f"/servers?order_by=id&is_running=true", interaction.user.id)
-        servers_content = servers_response["content"]
+        response = await api_get(f"/servers?order_by=id&is_running=true", interaction.user.id)
+        content = response["content"]
 
-        # TODO
-
-        """
-
-        # If servers were not successfully gotten
-        if not servers_response["ok"]:
-            if servers_content["detail"]:
-                description = categories_content["detail"]
-                self.commands_logger.debug(f"Cannot get servers, {servers_response['status']}")
-            success = False
-
-
-
-
-        # Loop through all servers, add running ones to the list
-        servers: list = database.operations.get_server_names("All")
-        for server in servers:
-            if await self.check_server_running(server):
-                description.append(server)
-
-        # Add all running servers to a string
-        for i in description:
+        if response["ok"]:
+            description = ""
             
-            # If only one server is running, no comma needed
-            if len(description_final) == 0:
-                description_final = description_final + i
+            for server in content["items"]:
+                server_title: str = server["display_name"]
+                server_start_datetime: datetime = datetime.fromisoformat(server["time_started"]).replace(tzinfo=timezone.utc)
+                now: datetime = datetime.now(timezone.utc)
+                time_since_started: timedelta = now - server_start_datetime
+                description += f"{server_title} - Up {await format_timedelta(time_since_started)}\n"
+            
+            embed: discord.Embed = discord.Embed(title="🟢 Servers currently online", description=description, color=settings.BLUE)
+        else:
+            embed: discord.Embed = discord.Embed(title="❌ Error getting active servers", description=None, color=settings.RED)
 
-            # Add comma if more than one server running
-            elif len(description_final):
-                description_final = description_final + f", {i}"
-
-        """
-
-
-
-        # Send embed
-        embed: discord.Embed = discord.Embed(title=title, description=description_final, color=settings.BLUE)
         embed.set_footer(text=settings.FOOTER)
         await interaction.followup.send(embed=embed)
 

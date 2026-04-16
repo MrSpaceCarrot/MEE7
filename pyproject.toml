@@ -17,7 +17,7 @@ dependencies = [
     "colorama",
     "contourpy",
     "cycler",
-    "discord-py",
+    "discord-py[voice]",
     "fonttools",
     "frozenlist",
     "idna",

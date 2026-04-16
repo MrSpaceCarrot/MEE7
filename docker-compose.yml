@@ -1,0 +1,6 @@
+services:
+    mee7:
+        build:
+            context: .
+        env_file:
+            - .env
