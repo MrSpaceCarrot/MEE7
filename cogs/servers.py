@@ -64,7 +64,7 @@ class Servers(commands.Cog):
             for category in categories_content["items"]:
                 category_servers = []
                 for server in servers_content["items"]:
-                    if server["category_id"] == category["id"]:
+                    if server["category"]["id"] == category["id"]:
                         category_servers.append(server["display_name"])
                 embed.add_field(name=f"**{category['name']}**", value=", ".join(category_servers), inline=False)
             break
